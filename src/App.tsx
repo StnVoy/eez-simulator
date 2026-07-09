@@ -19,15 +19,22 @@ export default function App() {
       <header className="app-header">
         <h1>EEZシミュレーター</h1>
         <span className={`mode-badge ${mode === 'sim' ? 'mode-badge-sim' : ''}`}>
-          {mode === 'real'
-            ? '実データ表示モード'
-            : 'シミュレーションモード(等距離中間線)'}
+          <span className="label-wide">
+            {mode === 'real'
+              ? '実データ表示モード'
+              : 'シミュレーションモード(等距離中間線)'}
+          </span>
+          <span className="label-narrow">
+            {mode === 'real' ? '実データ' : 'シミュレーション'}
+          </span>
         </span>
         <button
           className="header-column-button"
           onClick={() => openColumn('method')}
         >
-          EEZはどう計算しているか
+          {/* 狭い画面ではヘッダーが折り返さないよう短いラベルに切り替える */}
+          <span className="label-wide">EEZはどう計算しているか</span>
+          <span className="label-narrow">計算方法</span>
         </button>
         <button className="reset-button" onClick={resetAll}>
           リセット

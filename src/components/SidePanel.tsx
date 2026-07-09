@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react'
 import {
   COUNTRY_COLORS,
   COUNTRY_LAND_AREA_KM2,
@@ -275,6 +275,113 @@ function DisputeCard({ disputeId }: { disputeId: string }) {
   )
 }
 
+const MOBILE_QUERY = '(max-width: 800px)'
+/** ボトムシートのスナップ位置(app-mainの高さに対する比) */
+const SNAPS = [0.3, 0.55, 0.88]
+/** 掴んで動かす前のクリック判定に使う移動量(px) */
+const TAP_SLOP = 4
+/** シートを縮めても地図がこれ以上潰れないようにする(px) */
+const MIN_MAP_HEIGHT = 96
+/** シートの最小高さ。グラバーと1行分が見える程度(px) */
+const MIN_SHEET_HEIGHT = 56
+
+/**
+ * スマホでサイドパネルをボトムシートにして、高さを変えられるようにする。
+ * グラバーをドラッグすると連続的に、タップするとスナップ位置を巡回する。
+ * デスクトップでは何もしない(heightはnullのままCSSに任せる)。
+ */
+function useBottomSheet() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches,
+  )
+  const [height, setHeight] = useState<number | null>(null)
+  const asideRef = useRef<HTMLElement>(null)
+  const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY)
+    const onChange = () => {
+      setIsMobile(mq.matches)
+      setHeight(null) // 画面が切り替わったらCSSの既定に戻す
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  /** 地図が潰れない範囲に高さを収める */
+  const clampHeight = (h: number): number => {
+    const main = asideRef.current?.parentElement
+    const maxH = main ? main.clientHeight - MIN_MAP_HEIGHT : h
+    return Math.max(MIN_SHEET_HEIGHT, Math.min(maxH, h))
+  }
+
+  /** 地図(MapLibre)に新しいサイズを気づかせる */
+  const notifyResize = () => window.dispatchEvent(new Event('resize'))
+
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    const aside = asideRef.current
+    if (!aside) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      startY: e.clientY,
+      startH: aside.getBoundingClientRect().height,
+      moved: false,
+    }
+  }
+
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d) return
+    const dy = d.startY - e.clientY // 上に動かすほどシートが高くなる
+    if (Math.abs(dy) > TAP_SLOP) d.moved = true
+    setHeight(clampHeight(d.startH + dy))
+  }
+
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    dragRef.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (d && !d.moved) cycleSnap()
+    notifyResize()
+  }
+
+  /**
+   * タップ: 次に大きいスナップへ。一番上まで来たら一番下へ戻る。
+   * 比率ではなくクランプ後のpxで比べる。一番上のスナップは地図の
+   * 最小高さで切り詰められることがあり、比率のままだと自分自身を
+   * 「次」に選び続けて巡回が止まってしまう
+   */
+  const cycleSnap = () => {
+    const aside = asideRef.current
+    const main = aside?.parentElement
+    if (!aside || !main) return
+    const snapPx = SNAPS.map((s) => clampHeight(s * main.clientHeight))
+    const cur = aside.getBoundingClientRect().height
+    const next = snapPx.find((h) => h > cur + 8) ?? snapPx[0]
+    setHeight(next)
+    notifyResize()
+  }
+
+  /** キーボードでも動かせるように(role=separator) */
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const aside = asideRef.current
+    if (!aside) return
+    const cur = height ?? aside.getBoundingClientRect().height
+    if (e.key === 'ArrowUp') setHeight(clampHeight(cur + 32))
+    else if (e.key === 'ArrowDown') setHeight(clampHeight(cur - 32))
+    else if (e.key === 'Enter' || e.key === ' ') cycleSnap()
+    else return
+    e.preventDefault()
+    notifyResize()
+  }
+
+  return {
+    asideRef,
+    style: isMobile && height !== null ? { height: `${height}px` } : undefined,
+    grabberProps: { onPointerDown, onPointerMove, onPointerUp, onKeyDown },
+  }
+}
+
 export function SidePanel() {
   const realAreas = useAppStore((s) => s.realAreasKm2)
   const focusCountry = useAppStore((s) => s.focusCountry)
@@ -302,6 +409,7 @@ export function SidePanel() {
   const setShowTrough = useAppStore((s) => s.setShowTrough)
   const openColumn = useAppStore((s) => s.openColumn)
   const [placeCountry, setPlaceCountry] = useState('Japan')
+  const { asideRef, style, grabberProps } = useBottomSheet()
 
   const allIslands = { ...(baseline?.islands ?? {}), ...customIslands }
   const focusJa = COUNTRY_NAMES_JA[focusCountry] ?? focusCountry
@@ -333,7 +441,20 @@ export function SidePanel() {
       : []
 
   return (
-    <aside className="side-panel">
+    <aside className="side-panel" ref={asideRef} style={style}>
+      {/* スマホでのみ表示。掴んで高さを変え、タップでスナップ位置を巡回する */}
+      <div
+        className="panel-grabber"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="パネルの高さを変える"
+        tabIndex={0}
+        {...grabberProps}
+      >
+        <span className="panel-grabber-bar" />
+      </div>
+
+      <div className="panel-scroll">
       <section className="panel-card panel-card-primary">
         <div className="focus-head">
           <h2>{focusJa}のEEZ面積{isSim ? '(自前計算)' : ''}</h2>
@@ -660,6 +781,7 @@ export function SidePanel() {
             : 'シミュレーションでは係争海域は等距離モデルで機械的に配分されます。'}
         </p>
       </section>
+      </div>
     </aside>
   )
 }
