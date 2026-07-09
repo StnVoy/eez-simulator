@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { MapView } from './components/MapView'
 import { SidePanel } from './components/SidePanel'
 import { InfoModal } from './components/InfoModal'
+import { SOURCES_AS_OF } from './data/columns'
 import { useAppStore } from './store/useAppStore'
 import { initBaseline, resetAll } from './sim/controller'
 
@@ -40,6 +41,7 @@ export default function App() {
       <footer className="app-footer">
         <span>
           本アプリは教育目的の簡略モデルであり、法的な境界を示すものではありません。
+          {SOURCES_AS_OF}時点の情報をもとに作成しています(各国の主張や国際的な判断は変わりえます)。
         </span>
         <span>
           出典: Marine Regions (VLIZ) World EEZ v12 (CC BY-NC-SA) / Natural Earth

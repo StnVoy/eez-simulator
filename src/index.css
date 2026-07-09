@@ -1041,6 +1041,17 @@ body,
   border-top: 1px solid #e2e6ea;
 }
 
+.column-asof {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #6b4a12;
+  background: #fdf8ee;
+  border: 1px solid #eddfc2;
+  border-radius: 6px;
+}
+
 /* ---- 動かせない島 ---- */
 
 .island-marker-locked {

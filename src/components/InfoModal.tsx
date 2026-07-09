@@ -1,5 +1,11 @@
 import { useEffect } from 'react'
-import { COLUMNS, type ClaimBlock, type Quote, type Source } from '../data/columns'
+import {
+  COLUMNS,
+  SOURCES_AS_OF,
+  type ClaimBlock,
+  type Quote,
+  type Source,
+} from '../data/columns'
 import { COUNTRY_COLORS, COUNTRY_NAMES_JA, DISPUTED_COLOR } from '../lib/config'
 import { useAppStore } from '../store/useAppStore'
 
@@ -123,6 +129,11 @@ export function InfoModal() {
           <p className="column-disclaimer">
             本アプリは教育目的の簡略モデルであり、法的な境界を示すものではありません。
             各国の主張は、可能な限りその国の政府・公的機関自身が公表した文書を出典としています。
+          </p>
+          <p className="column-asof">
+            本シミュレーターは<strong>{SOURCES_AS_OF}時点</strong>で公開されていた情報をもとに作成されています。
+            各国の主張、国際機関の判断、条約の解釈、参照先の文書はいずれも変わりうるものです。
+            重要な判断に用いる際は、必ず上記の出典で最新の内容をご確認ください。
           </p>
         </div>
       </div>
