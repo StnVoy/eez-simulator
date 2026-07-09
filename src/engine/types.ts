@@ -12,10 +12,25 @@ export interface BaselineFile {
 }
 
 /** 係争地域(北方領土・竹島・尖閣など)。帰属をユーザーが切替可能 */
+/**
+ * 「係争中」を表す擬似的な帰属先。
+ *
+ * どの国のものでもないが、EEZは生む(海はそこにある)。この鍵に割り当てられた
+ * セルは、どの国の面積にも算入されず、係争中の見た目(灰色+斜線)で描かれる。
+ *
+ * owner の値の意味:
+ *   国名  … その国のEEZになる
+ *   ''    … 係争中。このDISPUTED_COUNTRYに集約される
+ *   null  … EEZを生まない(2016年仲裁判断の南沙諸島など)
+ * `'' ?? x === ''` だが `null ?? x === x` なので、この2つは別物として扱える。
+ */
+export const DISPUTED_COUNTRY = '__disputed__'
+
 export interface DisputedGroup {
   nameJa: string
-  /** 領有を主張する当事国(先頭が既定の帰属=日本の公式見解ベース) */
+  /** 領有を主張する当事国 */
   claimants: string[]
+  /** 各国の公式見解の参考値。既定の帰属ではない(既定は常に「係争中」) */
   defaultOwner: string
   /** マーカー表示用の代表点 */
   centroid: LonLat

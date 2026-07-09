@@ -88,24 +88,27 @@ function currentPoints(): PointsByCountry {
   return resolveBaseline(resolvedFile(), { islands, disputedOwners })
 }
 
-/** 島の現在の帰属(状態の上書き→定義の既定の順) */
-function effectiveOwner(id: string): string | null {
+/**
+ * 島の現在の帰属。''=係争中、null=EEZを生まない。
+ * 係争地に属する島は、島単体のownerではなく係争グループの帰属に従う
+ */
+export function effectiveOwner(id: string): string | null {
   const s = useAppStore.getState()
-  return s.islands[id]?.owner ?? islandDefs(s)[id]?.owner ?? null
+  const def = islandDefs(s)[id]
+  if (def?.disputeId) return s.disputedOwners[def.disputeId] ?? ''
+  return s.islands[id]?.owner ?? def?.owner ?? null
 }
 
-/** 現実そのまま(サンドボックス島なし・全島ON・現実位置・既定帰属)か */
+/** 現実そのまま(サンドボックス島なし・全島ON・現実位置・全ての係争地は係争中)か */
 function isDefaultState(): boolean {
   const { baseline, islands, customIslands, disputedOwners } = useAppStore.getState()
   if (!baseline) return false
   if (Object.keys(customIslands).length > 0) return false
-  // 係争地域の帰属がどれか既定と違えば非既定
-  const disputeChanged = Object.entries(disputedOwners).some(
-    ([id, owner]) => owner !== baseline.disputed[id]?.defaultOwner,
-  )
-  if (disputeChanged) return false
+  // 係争地の既定は「係争中」。どれか国に割り当てられていれば非既定
+  if (Object.values(disputedOwners).some((owner) => owner !== '')) return false
   return Object.entries(baseline.islands).every(([id, isl]) => {
     const st = islands[id]
+    if (isl.disputeId) return st?.enabled ?? false // 帰属は係争グループ側で判定済み
     return (
       st &&
       st.enabled &&
@@ -166,14 +169,11 @@ export async function setIslandOwner(
 
 /**
  * 係争地域(北方領土・竹島・尖閣)の帰属を切り替える → 確定計算。
- * その地域に属する島(択捉島など)の帰属も連動させる。
+ * その地域に属する島(択捉島など)はresolveBaseline側で自動的に連動する。
+ * owner='' は「係争中」で、どの国のEEZにも算入しない。
  */
 export async function setDisputeOwner(id: string, owner: string): Promise<void> {
-  const store = useAppStore.getState()
-  store.setDisputedOwner(id, owner)
-  for (const [iid, def] of Object.entries(islandDefs(store))) {
-    if (def.disputeId === id) store.setIslandState(iid, { owner })
-  }
+  useAppStore.getState().setDisputedOwner(id, owner)
   poolDirty = true
   await runFullSim()
 }

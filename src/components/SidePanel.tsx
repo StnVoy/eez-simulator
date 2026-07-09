@@ -15,6 +15,7 @@ import {
 } from '../data/islandInfo'
 import { WorldRanking } from './WorldRanking'
 import { WORLD_EEZ } from '../data/worldEez'
+import { DISPUTED_COUNTRY } from '../engine/types'
 import {
   applyScenario,
   getIslandContribution,
@@ -23,6 +24,12 @@ import {
   setIslandOwner,
   toggleIsland,
 } from '../sim/controller'
+
+/** 帰属先の表示名。DISPUTED_COUNTRYは擬似的な帰属先なので専用の名前にする */
+function ownerName(key: string): string {
+  if (key === DISPUTED_COUNTRY) return '係争中(どの国にも属さない)'
+  return COUNTRY_NAMES_JA[key] ?? key
+}
 
 function formatArea(km2: number): string {
   return `${Math.round(km2).toLocaleString('ja-JP')} km²`
@@ -227,7 +234,8 @@ function DisputeCard({ disputeId }: { disputeId: string }) {
   const simRunning = useAppStore((s) => s.simRunning)
   const setSelectedDisputeId = useAppStore((s) => s.setSelectedDisputeId)
   if (!dispute) return null
-  const current = disputedOwners[disputeId] ?? dispute.defaultOwner
+  // 既定は「係争中」。島を動かしただけで特定の国のものになってはいけない
+  const current = disputedOwners[disputeId] ?? ''
   const opponent = dispute.claimants.find((c) => c !== 'Japan') ?? ''
 
   return (
@@ -270,7 +278,7 @@ function DisputeCard({ disputeId }: { disputeId: string }) {
       </div>
       <ColumnLink columnId={disputeId} />
       <p className="area-footnote">
-        既定は日本の公式見解ベース。境界の引き方(中間線)は、どの国を選んでも変わりません。
+        既定は「係争中」で、どの国のEEZにも算入しません。境界の引き方(中間線)は、どの国を選んでも変わりません。
       </p>
     </section>
   )
@@ -496,7 +504,7 @@ export function SidePanel() {
         )}
         <p className="area-footnote">
           {isSim
-            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島は既定で日本の基線に含みます。日本の公称値(約447万km²)の約106%。'
+            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島・尖閣は既定で「係争中」とし、どの国の面積にも算入していません。3つとも日本に割り当てると約475万km²(公称値約447万km²の106%)になります。'
             : focusCountry === 'Japan'
               ? // 公称値との差は「領海の有無」ではなく「係争海域の切り出し」による。
                 // MRのポリゴンは領海を含む(海岸から8kmの点も内側にある)
@@ -523,9 +531,7 @@ export function SidePanel() {
                   className="swatch"
                   style={{ backgroundColor: COUNTRY_COLORS[country] ?? DISPUTED_COLOR }}
                 />
-                <span className="country-delta-name">
-                  {COUNTRY_NAMES_JA[country] ?? country}
-                </span>
+                <span className="country-delta-name">{ownerName(country)}</span>
                 <span
                   className={`delta-badge ${d > 0 ? 'delta-up' : 'delta-down'}`}
                 >
@@ -547,7 +553,7 @@ export function SidePanel() {
         <section className="panel-card panel-card-dispute">
           <h2>日本の領土問題</h2>
           <p className="area-note">
-            日本と相手国が領有を争う海域です。「日本」「係争中」「相手国」を選ぶとEEZがどう変わるか試せます(本アプリは特定の立場を示しません)。
+            日本と相手国が領有を争う海域です。既定は「係争中」で、どの国の面積にも入りません。「日本」「相手国」を選ぶとEEZがどう変わるか試せます(本アプリは特定の立場を示しません)。
           </p>
           <ul className="dispute-list">
             {Object.entries(baseline.disputed)
@@ -555,7 +561,7 @@ export function SidePanel() {
                 ([, d]) => d.claimants.length >= 2 && d.claimants.includes('Japan'),
               )
               .map(([id, d]) => {
-                const current = disputedOwners[id] ?? d.defaultOwner
+                const current = disputedOwners[id] ?? ''
                 const opponent = d.claimants.find((c) => c !== 'Japan') ?? ''
                 return (
                   <li key={id}>

@@ -31,7 +31,7 @@ interface AppState {
   customIslands: Record<string, IslandDef>
   /** 島ごとの状態(位置・ON/OFF)。キーはbaseline/custom両方のid */
   islands: Record<string, IslandState>
-  /** 係争地域の帰属の上書き(id→国名)。未設定なら各グループのdefaultOwner */
+  /** 係争地域の帰属(id→国名)。''=係争中。未設定は「係争中」として扱う */
   disputedOwners: Record<string, string>
   /** 全島ON・現実位置でのシミュレーション各国面積(増減表示の基準) */
   defaultSimAreasKm2: Record<string, number> | null

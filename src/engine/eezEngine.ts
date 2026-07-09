@@ -20,13 +20,14 @@ import {
   toRad,
 } from './geo'
 import { KdTree3 } from './kdtree'
-import type {
-  BaselineFile,
-  EezResult,
-  GridSpec,
-  IslandState,
-  LonLat,
-  PointsByCountry,
+import {
+  DISPUTED_COUNTRY,
+  type BaselineFile,
+  type EezResult,
+  type GridSpec,
+  type IslandState,
+  type LonLat,
+  type PointsByCountry,
 } from './types'
 
 /** 差分更新のために保持する計算状態(Workerプールでは行インターリーブ) */
@@ -287,8 +288,13 @@ export function updateEezWindowPartial(
 
 /**
  * baseline-points.json を国別点群に解決する。
- * - 係争地域: デフォルトは各グループのdefaultOwner(=日本の公式見解ベース)
- * - 島: enabledのもののみ、anchorからの移動量だけ平行移動してownerに追加
+ *
+ * - 係争地域: 既定は「係争中」。どの国のものにもせず DISPUTED_COUNTRY に集約する。
+ *   島を動かしただけで係争地が特定の国のものになってはいけない。
+ * - 係争地に属する島(択捉島など)は、島単体のownerではなく係争グループの帰属に従う。
+ *   点群はグループとは別に持っているため、ここで揃えないと片方だけ日本に残る。
+ * - 島: enabledのもののみ、anchorからの移動量だけ平行移動して帰属先に追加。
+ *   owner=null の島(仲裁判断下の南沙諸島)はEEZを生まない。
  */
 export function resolveBaseline(
   file: Pick<BaselineFile, 'countries' | 'disputed'> & Partial<Pick<BaselineFile, 'islands'>>,
@@ -298,25 +304,29 @@ export function resolveBaseline(
   } = {},
 ): PointsByCountry {
   const merged: PointsByCountry = {}
+  const push = (key: string, pts: LonLat[]) => {
+    merged[key] ??= []
+    merged[key].push(...pts)
+  }
   for (const [c, pts] of Object.entries(file.countries)) merged[c] = [...pts]
   for (const [id, group] of Object.entries(file.disputed)) {
-    const owner = opts.disputedOwners?.[id] ?? group.defaultOwner
-    if (!owner) continue // 帰属なし=どの国の基線にも含めない
-    merged[owner] ??= []
-    merged[owner].push(...group.points)
+    // 未設定は「係争中」。defaultOwnerは各国の立場の参考値であって既定値ではない
+    const owner = opts.disputedOwners?.[id] ?? ''
+    push(owner || DISPUTED_COUNTRY, group.points)
   }
   for (const [id, island] of Object.entries(file.islands ?? {})) {
     const st = opts.islands?.[id]
     if (st && !st.enabled) continue
-    // 帰属は状態の上書き(選択可能な島)を優先。未帰属ならEEZを生まない
-    const owner = st?.owner ?? island.owner
-    if (!owner) continue
+    const owner = island.disputeId
+      ? (opts.disputedOwners?.[island.disputeId] ?? '') // 係争グループに連動
+      : (st?.owner ?? island.owner)
+    if (owner === null) continue // 未帰属=EEZを生まない
     const dLon = st ? st.lon - island.anchor[0] : 0
     const dLat = st ? st.lat - island.anchor[1] : 0
-    merged[owner] ??= []
-    for (const [lon, lat] of island.points) {
-      merged[owner].push([lon + dLon, lat + dLat])
-    }
+    push(
+      owner || DISPUTED_COUNTRY,
+      island.points.map(([lon, lat]): LonLat => [lon + dLon, lat + dLat]),
+    )
   }
   return merged
 }

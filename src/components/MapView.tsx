@@ -14,7 +14,8 @@ import {
   type EezProperties,
 } from '../lib/config'
 import { islandDefs, useAppStore } from '../store/useAppStore'
-import type { EezResult } from '../engine/types'
+import { DISPUTED_COUNTRY, type EezResult } from '../engine/types'
+import { traceRegionRings } from '../engine/contour'
 import {
   NM12_KM,
   NM200_KM,
@@ -119,6 +120,8 @@ const mapStyle: StyleSpecification = {
     rings: { type: 'geojson', data: EMPTY_FC },
     measure: { type: 'geojson', data: EMPTY_FC },
     trough: { type: 'geojson', data: TROUGH_FC },
+    // シミュレーション時の係争中海域(輪郭をベクタ化して斜線を描く)
+    'sim-disputed': { type: 'geojson', data: EMPTY_FC },
   },
   layers: [
     { id: 'ocean', type: 'background', paint: { 'background-color': '#c6dcec' } },
@@ -339,6 +342,8 @@ function paintSimOverlay(
       if (code === 0) {
         data[i * 4 + 3] = 0
       } else {
+        // 係争中も含めて色は palette 任せ(未知の帰属先は DISPUTED_COLOR)。
+        // 斜線は sim-disputed-hatch レイヤーがベクタで screen 座標に描く
         const rgb = palette[code - 1]
         data[i * 4] = rgb[0]
         data[i * 4 + 1] = rgb[1]
@@ -363,6 +368,12 @@ export function MapView() {
   const markersRef = useRef<Record<string, maplibregl.Marker>>({})
   const disputeMarkersRef = useRef<Record<string, maplibregl.Marker>>({})
   const draggingRef = useRef<string | null>(null)
+  /**
+   * ドラッグ中か(輪郭の引き直しを止めるため)。refではなくstateにする。
+   * refだと、マウスを離した後に輪郭を引き直す契機がなく、ドラッグで
+   * シミュレーションに入ったときに斜線が一度も描かれない
+   */
+  const [dragging, setDragging] = useState(false)
   const setSelected = useAppStore((s) => s.setSelected)
   const mode = useAppStore((s) => s.mode)
   const simResult = useAppStore((s) => s.simResult)
@@ -444,6 +455,33 @@ export function MapView() {
           paint: { 'fill-pattern': 'hatch', 'fill-opacity': 0.55 },
         },
         'eez-line',
+      )
+      // シミュレーション時の係争中海域。ラスタが灰色を塗り、この2枚が
+      // 斜線と破線の縁を screen 座標で重ねる(実データ表示と同じ見た目)
+      map.addLayer(
+        {
+          id: 'sim-disputed-hatch',
+          type: 'fill',
+          source: 'sim-disputed',
+          layout: { visibility: 'none' },
+          paint: { 'fill-pattern': 'hatch', 'fill-opacity': 0.55 },
+        },
+        'land-fill',
+      )
+      map.addLayer(
+        {
+          id: 'sim-disputed-line',
+          type: 'line',
+          source: 'sim-disputed',
+          layout: { visibility: 'none' },
+          paint: {
+            'line-color': '#5c626b',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3.5, 0.4, 6, 1.2],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 3.5, 0.35, 6, 1],
+            'line-dasharray': [2, 2],
+          },
+        },
+        'land-fill',
       )
     })
 
@@ -565,6 +603,7 @@ export function MapView() {
         marker.on('dragstart', () => {
           dragged = true
           draggingRef.current = id
+          setDragging(true)
           void startDrag(id)
         })
         marker.on('drag', () => {
@@ -573,6 +612,7 @@ export function MapView() {
         })
         marker.on('dragend', () => {
           draggingRef.current = null
+          setDragging(false)
           void endDrag(id)
         })
       }
@@ -708,6 +748,43 @@ export function MapView() {
       m.getElement().classList.toggle('island-marker-pulse', !hintSeen)
     }
   }, [islands, mapObj, baseline, hintSeen])
+
+  /**
+   * 係争中の海域をベクタ化して斜線レイヤーへ流す。
+   * 輪郭追跡はグリッド全体の走査(数十ms)なので、ドラッグ中は走らせない。
+   * 係争地の島は動かせないので、ドラッグ中に形が変わるのは隣接する島
+   * (対馬↔竹島など)を動かしたときだけで、離した時点で追いつく。
+   */
+  useEffect(() => {
+    const map = mapObj
+    if (!map || !styleReady) return
+    const src = map.getSource('sim-disputed') as maplibregl.GeoJSONSource | undefined
+    if (!src) return
+    const show = (v: boolean) => {
+      for (const id of ['sim-disputed-hatch', 'sim-disputed-line']) {
+        if (map.getLayer(id))
+          map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none')
+      }
+    }
+    if (mode !== 'sim' || !simResult) {
+      show(false)
+      return
+    }
+    // ドラッグ中は輪郭を引き直さない(消しもしない。前の形のまま残す)
+    if (dragging) return
+    const code = simResult.countries.indexOf(DISPUTED_COUNTRY) + 1
+    const rings = code > 0 ? traceRegionRings(simResult.codes, simResult.grid, code) : []
+    src.setData({
+      type: 'FeatureCollection',
+      // 穴は生じない前提(陸地は上のレイヤーが覆う)。リングごとに独立したPolygon
+      features: rings.map((ring) => ({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [ring] },
+      })),
+    })
+    show(rings.length > 0)
+  }, [mapObj, styleReady, mode, simResult, dragging])
 
   // シミュレーション結果のオーバーレイ表示と実データレイヤーの切替
   const overlayRef = useRef<SimOverlay | null>(null)

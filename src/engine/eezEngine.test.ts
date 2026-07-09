@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { EARTH_RADIUS_KM, NM200_KM, toRad } from './geo'
+import { DISPUTED_COUNTRY } from './types'
 import {
   buildTree,
   computeEez,
@@ -96,10 +97,18 @@ describe('resolveBaseline', () => {
       },
     },
   }
-  it('デフォルトはdefaultOwnerに帰属', () => {
+  it('デフォルトは係争中(どの国にも帰属しない)', () => {
     const merged = resolveBaseline(file)
-    expect(merged.Japan).toHaveLength(2)
+    expect(merged.Japan).toHaveLength(1)
     expect(merged.Russia).toHaveLength(1)
+    expect(merged[DISPUTED_COUNTRY]).toEqual([[147, 45]])
+  })
+  it('係争中を明示しても同じ', () => {
+    const merged = resolveBaseline(file, {
+      disputedOwners: { 'northern-territories': '' },
+    })
+    expect(merged[DISPUTED_COUNTRY]).toHaveLength(1)
+    expect(merged.Japan).toHaveLength(1)
   })
   it('帰属の上書きができる', () => {
     const merged = resolveBaseline(file, {
@@ -120,6 +129,28 @@ describe('resolveBaseline', () => {
       },
     },
   }
+  it('係争地に属する島は係争グループの帰属に連動する', () => {
+    const f = {
+      ...file,
+      islands: {
+        etorofu: {
+          nameJa: '択捉島',
+          owner: 'Japan',
+          disputeId: 'northern-territories',
+          anchor: [148, 45] as [number, number],
+          points: [[148, 45]] as [number, number][],
+        },
+      },
+    }
+    // 島定義のowner='Japan'は無視され、既定の「係争中」に従う
+    expect(resolveBaseline(f).Japan).toHaveLength(1)
+    expect(resolveBaseline(f)[DISPUTED_COUNTRY]).toHaveLength(2)
+    // ロシアを選べば島も一緒に動く
+    const ru = resolveBaseline(f, { disputedOwners: { 'northern-territories': 'Russia' } })
+    expect(ru.Russia).toHaveLength(3)
+    expect(ru[DISPUTED_COUNTRY]).toBeUndefined()
+  })
+
   it('島はデフォルトでownerに現実位置で追加される', () => {
     const merged = resolveBaseline(fileWithIsland)
     expect(merged.Japan).toContainEqual([136, 20.4])
@@ -128,7 +159,7 @@ describe('resolveBaseline', () => {
     const merged = resolveBaseline(fileWithIsland, {
       islands: { okinotorishima: { enabled: false, lon: 136, lat: 20.4 } },
     })
-    expect(merged.Japan).toHaveLength(2) // 元のJapan 1点+disputed 1点
+    expect(merged.Japan).toHaveLength(1) // 元のJapan 1点のみ(係争地は別枠)
   })
   it('島の移動は平行移動として反映される', () => {
     const merged = resolveBaseline(fileWithIsland, {
@@ -176,12 +207,43 @@ describe('実データでの精度(受け入れ基準)', () => {
   // 表示bboxと同じ範囲、約0.1度解像度
   const grid: GridSpec = { bbox: [110, 15, 160, 50], width: 500, height: 430 }
 
-  it('日本EEZ面積が公称447万km²の±10%以内', () => {
-    const result = computeEez(resolveBaseline(file), grid)
+  /** 3つの係争地をすべて日本に割り当てた場合(=日本の主張どおり) */
+  const allToJapan = {
+    'northern-territories': 'Japan',
+    takeshima: 'Japan',
+    senkaku: 'Japan',
+  }
+
+  it('係争地を日本に割り当てると公称447万km²の±10%以内', () => {
+    const result = computeEez(resolveBaseline(file, { disputedOwners: allToJapan }), grid)
     const japan = result.areaKm2.Japan
     const official = 4_470_000 // 領海+EEZの公称値
     expect(japan).toBeGreaterThan(official * 0.9)
     expect(japan).toBeLessThan(official * 1.1)
+  })
+
+  it('既定は係争中: どの国にも算入されず、日本に割り当てた分だけ増える', () => {
+    const contested = computeEez(resolveBaseline(file), grid)
+    const japanese = computeEez(resolveBaseline(file, { disputedOwners: allToJapan }), grid)
+    const disputed = contested.areaKm2[DISPUTED_COUNTRY]
+    expect(disputed).toBeGreaterThan(0)
+    expect(japanese.areaKm2.Japan - contested.areaKm2.Japan).toBeCloseTo(disputed, 0)
+    expect(japanese.areaKm2[DISPUTED_COUNTRY]).toBeUndefined()
+  })
+
+  it('相手国に割り当てても日本の面積は既定から変わらない', () => {
+    const contested = computeEez(resolveBaseline(file), grid)
+    const toOthers = computeEez(
+      resolveBaseline(file, {
+        disputedOwners: {
+          'northern-territories': 'Russia',
+          takeshima: 'South Korea',
+          senkaku: 'China',
+        },
+      }),
+      grid,
+    )
+    expect(toOthers.areaKm2.Japan).toBeCloseTo(contested.areaKm2.Japan, 0)
   })
 
   it('沖ノ鳥島OFFで日本EEZが約40万km²減る', () => {
