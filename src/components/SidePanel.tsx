@@ -444,7 +444,7 @@ export function SidePanel() {
         (defaultSimAreas[focusCountry] ?? 0)
       : null
 
-  // 国別の増減(現実比)。変化の大きい順、1万km²未満は省略
+  // 国別の増減。比較対象は実データではなく「操作前のシミュレーション既定状態」
   const countryDeltas =
     isSim && defaultSimAreas !== null
       ? simResult.countries
@@ -493,7 +493,7 @@ export function SidePanel() {
         {delta !== null && Math.abs(delta) > 10000 && (
           <p className="delta-row">
             <span className={`delta-badge ${delta > 0 ? 'delta-up' : 'delta-down'}`}>
-              現実より{formatDelta(delta)}
+              操作前より{formatDelta(delta)}
             </span>
           </p>
         )}
@@ -511,6 +511,13 @@ export function SidePanel() {
                 '※ Marine Regionsの算出値。北方領土・尖閣・竹島の周辺と日韓暫定水域(合計約37万km²)は「係争中/共同管理」の別海域として切り出されており、この数字には含まれません。足し戻すと約444万km²で、日本の公称値(約447万km²)の99.3%になります。'
               : '※ Marine Regionsの算出値。係争中・共同管理の海域は、どの国の取り分とも決まっていないため含みません。'}
         </p>
+        {isSim && focusCountry === 'Japan' && realAreas?.Japan != null && (
+          <p className="area-footnote">
+            ※ 実データ(Marine Regions)では {formatArea(realAreas.Japan)}。
+            差の約34.5万km²は計算モデルの違い(小さな島に完全な効果を与える・日韓暫定水域を中間線で割る等)によるもので、
+            係争海域の帰属は変わっていません。3つとも「係争中」のままです。
+          </p>
+        )}
         {partialCoverage && (
           <p className="area-footnote">
             ※ この地図は太平洋西部だけを収めているため、{focusJa}
@@ -523,7 +530,7 @@ export function SidePanel() {
 
       {countryDeltas.length > 0 && (
         <section className="panel-card">
-          <h2>各国のEEZ増減(現実比)</h2>
+          <h2>各国のEEZ増減(操作前との差)</h2>
           <ul className="country-delta-list">
             {countryDeltas.map(({ country, delta: d }) => (
               <li key={country}>
@@ -541,7 +548,7 @@ export function SidePanel() {
             ))}
           </ul>
           <p className="area-footnote">
-            島の移動・ON/OFFで海域を取り合う相手国が分かります(1万km²未満の変化は省略)。
+            島を動かす前の状態(全島ON・現実位置・係争地は係争中)を基準にした差です。海域を取り合う相手国が分かります(1万km²未満の変化は省略)。
           </p>
         </section>
       )}
