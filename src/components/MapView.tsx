@@ -595,7 +595,8 @@ export function MapView() {
       label.className = 'island-label'
       label.textContent = isl.nameJa
       el.append(dot, label)
-      const marker = new maplibregl.Marker({ element: el, draggable: !locked })
+      // ドラッグはシミュレーションモードのときだけ(下のeffectで切り替える)
+      const marker = new maplibregl.Marker({ element: el, draggable: false })
         .setLngLat(isl.anchor)
         .addTo(mapObj)
       let dragged = false
@@ -629,6 +630,16 @@ export function MapView() {
       markers[id] = marker
     }
   }, [mapObj, baseline, customIslands])
+
+  // 実データ表示中は島を動かせない。モードで明示的に切り替える
+  useEffect(() => {
+    for (const [id, marker] of Object.entries(markersRef.current)) {
+      const canDrag = mode === 'sim' && !LOCKED_ISLAND_IDS.has(id)
+      marker.setDraggable(canDrag)
+      const el = marker.getElement()
+      el.classList.toggle('island-marker-static', !canDrag)
+    }
+  }, [mode, mapObj, baseline, customIslands])
 
   // アンマウント時に全マーカーを撤去
   useEffect(() => {
@@ -854,8 +865,17 @@ export function MapView() {
       {!hintSeen && baseline && (
         <div className="map-hint" role="note">
           <span>
-            💡 島のマーカーを<b>ドラッグ</b>したり、島リストで<b>ON/OFF</b>
-            すると、EEZ(排他的経済水域)の変化を体感できます
+            {mode === 'real' ? (
+              <>
+                💡 いま見えているのは <b>実データ</b>(Marine Regions)です。上部で
+                <b>シミュレーション</b>に切り替えると、島を動かしてEEZの変化を体感できます
+              </>
+            ) : (
+              <>
+                💡 島のマーカーを<b>ドラッグ</b>したり、島リストで<b>ON/OFF</b>
+                すると、EEZ(排他的経済水域)の変化を体感できます
+              </>
+            )}
           </span>
           <button
             className="map-hint-close"

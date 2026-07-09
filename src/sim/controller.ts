@@ -24,7 +24,7 @@ import type {
 } from '../engine/types'
 import { loadRealAreas } from '../lib/realAreas'
 import { CONTRIB_GRID, INFLUENCE_RADIUS_KM, SIM_GRID } from '../lib/simConfig'
-import { islandDefs, useAppStore } from '../store/useAppStore'
+import { islandDefs, useAppStore, type ViewMode } from '../store/useAppStore'
 
 /**
  * Workerプールの保持状態がストアの島の状態とずれているか。
@@ -145,6 +145,25 @@ export async function runFullSim(): Promise<void> {
   }
 }
 
+/**
+ * 表示モードの明示的な切替。
+ *
+ * 以前は島を動かすと暗黙にシミュレーションへ移っていたが、その瞬間に
+ * 地図全体が別モデルで描き直され、動かした島と無関係な海域まで塗り替わる
+ * (竹島の周りが韓国のEEZから係争中の斜線に変わる等)。モードは明示的に分ける。
+ */
+export async function setViewMode(mode: ViewMode): Promise<void> {
+  const store = useAppStore.getState()
+  if (store.mode === mode) return
+  if (mode === 'real') {
+    store.setMode('real')
+    return
+  }
+  // シミュレーションへ: まだ計算結果がなければ確定計算(runFullSimがmodeも立てる)
+  if (!store.simResult || poolDirty) await runFullSim()
+  else store.setMode('sim')
+}
+
 /** 実データ表示に戻す(島の状態は維持) */
 export function showRealData(): void {
   useAppStore.getState().setMode('real')
@@ -211,8 +230,9 @@ export async function removeIsland(id: string): Promise<void> {
 export function resetAll(): void {
   const store = useAppStore.getState()
   store.resetIslands()
-  store.setMode('real')
   poolDirty = true
+  // モードは変えない。シミュレーション中なら現実の配置で計算し直す
+  if (store.mode === 'sim') void runFullSim()
 }
 
 /** 「もしも」シナリオ: 現実状態から指定の島だけOFFにして確定計算 */
@@ -316,7 +336,6 @@ export async function startDrag(id: string): Promise<void> {
   const st = store.islands[id]
   const island = islandDefs(store)[id]
   const startPos: [number, number] = [st.lon, st.lat]
-  store.setMode('sim')
 
   if (poolDirty) {
     // リセット直後など、プールが現在状態を持っていない場合のみ全域計算。

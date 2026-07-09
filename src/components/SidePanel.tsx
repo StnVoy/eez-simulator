@@ -22,6 +22,7 @@ import {
   removeIsland,
   setDisputeOwner,
   setIslandOwner,
+  setViewMode,
   toggleIsland,
 } from '../sim/controller'
 
@@ -69,7 +70,9 @@ function describeSelected(p: {
 function IslandCard({ islandId }: { islandId: string }) {
   const island = useAppStore((s) => islandDefs(s)[islandId])
   const st = useAppStore((s) => s.islands[islandId])
-  const simRunning = useAppStore((s) => s.simRunning)
+  // 実データ表示中はシミュレーションの操作を受け付けない
+  const frozen = useAppStore((s) => s.simRunning || s.mode === 'real')
+  const simRunning = frozen
   const setSelectedIslandId = useAppStore((s) => s.setSelectedIslandId)
   const [contribution, setContribution] = useState<{
     owner: string | null
@@ -231,7 +234,7 @@ function ColumnLink({ columnId, label }: { columnId: string; label?: string }) {
 function DisputeCard({ disputeId }: { disputeId: string }) {
   const dispute = useAppStore((s) => s.baseline?.disputed[disputeId])
   const disputedOwners = useAppStore((s) => s.disputedOwners)
-  const simRunning = useAppStore((s) => s.simRunning)
+  const simRunning = useAppStore((s) => s.simRunning || s.mode === 'real')
   const setSelectedDisputeId = useAppStore((s) => s.setSelectedDisputeId)
   if (!dispute) return null
   // 既定は「係争中」。島を動かしただけで特定の国のものになってはいけない
@@ -424,6 +427,8 @@ export function SidePanel() {
   const focusJa = COUNTRY_NAMES_JA[focusCountry] ?? focusCountry
 
   const isSim = mode === 'sim' && simResult !== null
+  /** 実データ表示中・計算中はシミュレーションの操作を受け付けない */
+  const frozen = simRunning || mode === 'real'
   const rawArea = isSim
     ? (simResult.areaKm2[focusCountry] ?? 0)
     : (realAreas?.[focusCountry] ?? null)
@@ -432,10 +437,16 @@ export function SidePanel() {
   const ratio =
     shownArea !== null && landArea ? (shownArea / landArea).toFixed(1) : null
   // この地図(太平洋西部)に収まらない国は、実データの合計が全世界の値に届かない。
-  // 世界ランキングの値と比べて明らかに足りなければ、その旨を注記する
+  // 世界ランキングの値と大きく食い違えば、その旨を注記する。
+  // 日本は全域が地図内にあり、公称値との差は係争海域の切り出しによるもの
+  // (0.85のしきい値はそれを誤検知しないため。日本は91%)
   const worldRef = WORLD_EEZ.find((e) => e.key === focusCountry)
   const partialCoverage =
-    !isSim && worldRef && rawArea !== null && rawArea < worldRef.eezManKm2 * 10_000 * 0.95
+    !isSim &&
+    worldRef &&
+    focusCountry !== 'Japan' &&
+    rawArea !== null &&
+    rawArea < worldRef.eezManKm2 * 10_000 * 0.85
       ? worldRef
       : null
   const delta =
@@ -528,6 +539,25 @@ export function SidePanel() {
         <ColumnLink columnId="method" label="📐 EEZはどう計算しているか" />
       </section>
 
+      {mode === 'real' && (
+        <section className="panel-card panel-card-mode">
+          <h2>実データを表示しています</h2>
+          <p className="area-note">
+            Marine Regions が公表しているEEZの区画です。島を動かす・領土問題の帰属を切り替えるといった操作は、シミュレーションに切り替えると行えます。
+          </p>
+          <p className="area-footnote">
+            2つは別のモデルです。実データは各国の交渉結果を反映しており、竹島のような小さな島には完全な200海里の効果を与えていません。自前計算は全ての島に等しく効果を与えるため、係争海域の形も広さも変わります。
+          </p>
+          <button
+            className="action-button"
+            disabled={simRunning || !baseline}
+            onClick={() => void setViewMode('sim')}
+          >
+            {simRunning ? '計算中…' : 'シミュレーションに切り替える'}
+          </button>
+        </section>
+      )}
+
       {countryDeltas.length > 0 && (
         <section className="panel-card">
           <h2>各国のEEZ増減(操作前との差)</h2>
@@ -585,21 +615,21 @@ export function SidePanel() {
                     <div className="dispute-toggle">
                       <button
                         className={current === 'Japan' ? 'active' : ''}
-                        disabled={simRunning}
+                        disabled={frozen}
                         onClick={() => void setDisputeOwner(id, 'Japan')}
                       >
                         日本
                       </button>
                       <button
                         className={current === '' ? 'active' : ''}
-                        disabled={simRunning}
+                        disabled={frozen}
                         onClick={() => void setDisputeOwner(id, '')}
                       >
                         係争中
                       </button>
                       <button
                         className={current === opponent ? 'active' : ''}
-                        disabled={simRunning}
+                        disabled={frozen}
                         onClick={() => void setDisputeOwner(id, opponent)}
                       >
                         {COUNTRY_NAMES_JA[opponent] ?? opponent}
@@ -631,7 +661,7 @@ export function SidePanel() {
                   type="checkbox"
                   aria-label={`${isl.nameJa}をEEZの計算に含める`}
                   checked={st?.enabled ?? true}
-                  disabled={simRunning || locked}
+                  disabled={frozen || locked}
                   onChange={() => void toggleIsland(id)}
                 />
                 <span
@@ -657,7 +687,7 @@ export function SidePanel() {
                   <button
                     className="island-delete"
                     aria-label="この島を削除"
-                    disabled={simRunning}
+                    disabled={frozen}
                     onClick={() => void removeIsland(id)}
                   >
                     ×
@@ -681,7 +711,7 @@ export function SidePanel() {
           国:
           <select
             value={placeCountry}
-            disabled={simRunning || placing !== null}
+            disabled={frozen || placing !== null}
             onChange={(e) => setPlaceCountry(e.target.value)}
           >
             {Object.keys(COUNTRY_COLORS).map((c) => (
@@ -693,7 +723,7 @@ export function SidePanel() {
         </label>
         <button
           className={`action-button ${placing ? 'action-button-active' : ''}`}
-          disabled={simRunning}
+          disabled={frozen}
           onClick={() => setPlacing(placing ? null : placeCountry)}
         >
           {placing
@@ -709,7 +739,7 @@ export function SidePanel() {
             <li key={sc.id}>
               <button
                 className="scenario-button"
-                disabled={simRunning}
+                disabled={frozen}
                 onClick={() => void applyScenario(sc.disable)}
               >
                 <span className="scenario-label">{sc.label}</span>
@@ -722,7 +752,7 @@ export function SidePanel() {
 
       {isSim && (
         <p className="sim-hint">
-          島や領土問題を操作するとシミュレーション表示に切り替わります。ヘッダーの「リセット」で実データ(係争中の表示)に戻せます。
+          等距離中間線モデルによる自前計算を表示しています。「リセット」で島を現実の配置に戻せます。実データと比べるにはヘッダーの「実データ」へ。
         </p>
       )}
 

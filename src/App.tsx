@@ -4,10 +4,12 @@ import { SidePanel } from './components/SidePanel'
 import { InfoModal } from './components/InfoModal'
 import { SOURCES_AS_OF } from './data/columns'
 import { useAppStore } from './store/useAppStore'
-import { initBaseline, resetAll } from './sim/controller'
+import { initBaseline, resetAll, setViewMode } from './sim/controller'
 
 export default function App() {
   const mode = useAppStore((s) => s.mode)
+  const simRunning = useAppStore((s) => s.simRunning)
+  const baseline = useAppStore((s) => s.baseline)
   const openColumn = useAppStore((s) => s.openColumn)
 
   useEffect(() => {
@@ -18,16 +20,28 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>EEZシミュレーター</h1>
-        <span className={`mode-badge ${mode === 'sim' ? 'mode-badge-sim' : ''}`}>
-          <span className="label-wide">
-            {mode === 'real'
-              ? '実データ表示モード'
-              : 'シミュレーションモード(等距離中間線)'}
-          </span>
-          <span className="label-narrow">
-            {mode === 'real' ? '実データ' : 'シミュレーション'}
-          </span>
-        </span>
+        {/* モードは明示的に切り替える。暗黙に切り替わると、動かした島と
+            無関係な海域まで別モデルで塗り替わってしまう */}
+        <div className="mode-switch" role="group" aria-label="表示モード">
+          <button
+            className={mode === 'real' ? 'active' : ''}
+            disabled={simRunning}
+            onClick={() => void setViewMode('real')}
+          >
+            <span className="label-wide">実データ</span>
+            <span className="label-narrow">実データ</span>
+          </button>
+          <button
+            className={mode === 'sim' ? 'active' : ''}
+            disabled={simRunning || !baseline}
+            onClick={() => void setViewMode('sim')}
+          >
+            <span className="label-wide">
+              {simRunning ? '計算中…' : 'シミュレーション'}
+            </span>
+            <span className="label-narrow">{simRunning ? '計算中…' : 'シミュ'}</span>
+          </button>
+        </div>
         <button
           className="header-column-button"
           onClick={() => openColumn('method')}
