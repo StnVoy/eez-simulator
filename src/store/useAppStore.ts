@@ -42,6 +42,11 @@ interface AppState {
   /** 初見ヒントを消したか(操作を始めたら自動でtrue) */
   hintSeen: boolean
   /**
+   * 一度でもシミュレーションモードに入ったか。
+   * このアプリの主役はシミュレーションなので、入るまでは切替を目立たせる
+   */
+  simVisited: boolean
+  /**
    * サンドボックス「島を新設」の配置待ち。値は設置する島の帰属国名。
    * null = 配置モードでない。次の地図クリックでこの国の島を設置する。
    */
@@ -115,6 +120,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedIslandId: null,
   selectedDisputeId: null,
   hintSeen: false,
+  simVisited: false,
   placing: null,
   measuring: false,
   measureKm: null,
@@ -136,8 +142,9 @@ export const useAppStore = create<AppState>((set) => ({
   setShowTrough: (v) => set({ showTrough: v }),
   openColumn: (id) => set({ openColumnId: id }),
   closeColumn: () => set({ openColumnId: null }),
-  // シミュレーションを触った時点でヒントは役目を終える
-  setMode: (m) => set(m === 'sim' ? { mode: m, hintSeen: true } : { mode: m }),
+  // シミュレーションに入ったら切替の強調は終わる。ヒントは中身が変わる
+  // (実データ=切替の案内 / シミュレーション=ドラッグの案内)ので消さない
+  setMode: (m) => set(m === 'sim' ? { mode: m, simVisited: true } : { mode: m }),
   setSimRunning: (v) => set({ simRunning: v }),
   setSimResult: (r) => set({ simResult: r, simRunning: false }),
   setBaseline: (f) => set({ baseline: f, islands: defaultIslands(f) }),

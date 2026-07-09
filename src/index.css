@@ -552,6 +552,7 @@ body,
   transform: translateX(-50%);
   max-width: min(92%, 520px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -562,16 +563,31 @@ body,
   font-size: 13px;
   line-height: 1.5;
   z-index: 5;
+  padding-right: 26px;
 }
 
+.map-hint > span {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.map-hint-cta {
+  flex: none;
+  margin-left: 0;
+}
+
+/* 閉じるは常に右上。折り返してもテキストと同じ行に居座らせない */
 .map-hint-close {
+  position: absolute;
+  top: 2px;
+  right: 4px;
   border: none;
   background: transparent;
   font-size: 16px;
   color: #57606a;
   cursor: pointer;
-  padding: 0 4px;
-  flex-shrink: 0;
+  padding: 2px 6px;
+  line-height: 1;
 }
 
 /* 島情報カード */
@@ -890,8 +906,68 @@ body,
   opacity: 0.65;
 }
 
+/* このアプリの主役への導線。実データ表示中だけ出る */
 .panel-card-mode {
   border-left: 3px solid #2b6cd4;
+  background: #f6f9fe;
+}
+
+.panel-card-mode h2 {
+  color: #1c4fa0;
+}
+
+.mode-card-lead {
+  margin-top: 10px;
+}
+
+.action-button-cta {
+  padding: 11px 12px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(43, 108, 212, 0.32);
+}
+
+/* 一度もシミュレーションに入っていない間だけ、切替を目立たせる */
+.mode-switch button.mode-cta:not(.active) {
+  color: #ffffff;
+  background: #2b6cd4;
+  animation: mode-cta-pulse 2.2s ease-in-out infinite;
+}
+
+.mode-switch button.mode-cta:not(.active):hover {
+  background: #1c4fa0;
+}
+
+@keyframes mode-cta-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(43, 108, 212, 0.5);
+  }
+  60% {
+    box-shadow: 0 0 0 7px rgba(43, 108, 212, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-switch button.mode-cta:not(.active) {
+    animation: none;
+  }
+}
+
+/* 地図のヒント内に置く、シミュレーションへの導線 */
+.map-hint-cta {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #2b6cd4;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.map-hint-cta:hover:not(:disabled) {
+  background: #1c4fa0;
 }
 
 /* 幅で出し分けるラベル(既定は広い画面向け) */
@@ -1231,15 +1307,17 @@ body,
   .label-narrow {
     display: inline;
   }
-  .header-column-button,
+  /* モードの名前は略さない。幅は「計算方法」を落として作る
+     (同じリンクはサイドパネルの面積カードにもある) */
+  .header-column-button {
+    display: none;
+  }
   .reset-button {
     flex: none;
-    padding: 3px 7px;
-    font-size: 10px;
+    margin-left: auto;
+    padding: 4px 8px;
+    font-size: 11px;
     white-space: nowrap;
-  }
-  .header-column-button + .reset-button {
-    margin-left: 0;
   }
   .mode-badge {
     font-size: 11px;
@@ -1250,9 +1328,17 @@ body,
   }
   .map-hint {
     top: 8px;
-    max-width: min(78%, 300px);
+    max-width: 92%;
     font-size: 11px;
     line-height: 1.5;
+    padding: 8px 10px;
+  }
+  .map-hint > span {
+    flex: 1 1 100%;
+  }
+  .map-hint-cta {
+    flex: 1 1 auto;
+    font-size: 12px;
   }
   /* フッターは1行のボタンに畳む。全文はモーダルで読む */
   .app-footer {

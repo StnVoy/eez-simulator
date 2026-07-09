@@ -28,6 +28,7 @@ import {
   consumeDirty,
   dragTo,
   endDrag,
+  setViewMode,
   startDrag,
 } from '../sim/controller'
 import { LOCKED_ISLAND_IDS } from '../data/islandInfo'
@@ -661,6 +662,8 @@ export function MapView() {
           dragged = true
           draggingRef.current = id
           setDragging(true)
+          // 一度ドラッグしたら、ドラッグを促すヒントは役目を終える
+          useAppStore.getState().setHintSeen()
           void startDrag(id)
         })
         marker.on('drag', () => {
@@ -947,8 +950,9 @@ export function MapView() {
           <span>
             {mode === 'real' ? (
               <>
-                💡 いま見えているのは <b>実データ</b>(Marine Regions)です。上部で
-                <b>シミュレーション</b>に切り替えると、島を動かしてEEZの変化を体感できます
+                いま見えているのは <b>実データ</b>(Marine Regions)。
+                <b>シミュレーション</b>に切り替えると、島をドラッグしてEEZが
+                どう変わるかを試せます ―― これがこのアプリの主役です。
               </>
             ) : (
               <>
@@ -957,6 +961,15 @@ export function MapView() {
               </>
             )}
           </span>
+          {mode === 'real' && (
+            <button
+              className="map-hint-cta"
+              disabled={!baseline}
+              onClick={() => void setViewMode('sim')}
+            >
+              ▶ シミュレーションを始める
+            </button>
+          )}
           <button
             className="map-hint-close"
             aria-label="ヒントを閉じる"

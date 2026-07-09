@@ -10,6 +10,7 @@ export default function App() {
   const mode = useAppStore((s) => s.mode)
   const simRunning = useAppStore((s) => s.simRunning)
   const baseline = useAppStore((s) => s.baseline)
+  const simVisited = useAppStore((s) => s.simVisited)
   const openColumn = useAppStore((s) => s.openColumn)
 
   useEffect(() => {
@@ -28,18 +29,20 @@ export default function App() {
             disabled={simRunning}
             onClick={() => void setViewMode('real')}
           >
-            <span className="label-wide">実データ</span>
-            <span className="label-narrow">実データ</span>
+            実データ
           </button>
           <button
-            className={mode === 'sim' ? 'active' : ''}
+            // このアプリの主役。一度も入っていないうちは目立たせ続ける
+            className={[
+              mode === 'sim' ? 'active' : '',
+              !simVisited && baseline ? 'mode-cta' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             disabled={simRunning || !baseline}
             onClick={() => void setViewMode('sim')}
           >
-            <span className="label-wide">
-              {simRunning ? '計算中…' : 'シミュレーション'}
-            </span>
-            <span className="label-narrow">{simRunning ? '計算中…' : 'シミュ'}</span>
+            {simRunning ? '計算中…' : 'シミュレーション'}
           </button>
         </div>
         <button

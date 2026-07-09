@@ -541,20 +541,24 @@ export function SidePanel() {
 
       {mode === 'real' && (
         <section className="panel-card panel-card-mode">
-          <h2>実データを表示しています</h2>
+          <h2>いまは実データ表示です</h2>
           <p className="area-note">
-            Marine Regions が公表しているEEZの区画です。島を動かす・領土問題の帰属を切り替えるといった操作は、シミュレーションに切り替えると行えます。
+            Marine Regions が公表しているEEZの区画を、そのまま描いています。
+            <strong>島は動かせません。</strong>
+          </p>
+          <button
+            className="action-button action-button-cta"
+            disabled={simRunning || !baseline}
+            onClick={() => void setViewMode('sim')}
+          >
+            {simRunning ? '計算中…' : '▶ シミュレーションを始める'}
+          </button>
+          <p className="area-note mode-card-lead">
+            島をドラッグしたり消したりすると、EEZがその場で計算し直されます。沖ノ鳥島を消すと日本のEEZが41万km²消えます ―― 国土面積より広い。
           </p>
           <p className="area-footnote">
             2つは別のモデルです。実データは各国の交渉結果を反映しており、竹島のような小さな島には完全な200海里の効果を与えていません。自前計算は全ての島に等しく効果を与えるため、係争海域の形も広さも変わります。
           </p>
-          <button
-            className="action-button"
-            disabled={simRunning || !baseline}
-            onClick={() => void setViewMode('sim')}
-          >
-            {simRunning ? '計算中…' : 'シミュレーションに切り替える'}
-          </button>
         </section>
       )}
 
