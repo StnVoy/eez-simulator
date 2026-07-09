@@ -52,6 +52,13 @@ interface AppState {
   measureKm: number | null
   /** 各島の 領海(12海里)と EEZ(200海里)の同心円を表示 */
   showTerritorial: boolean
+  /**
+   * 沖縄トラフ(中国がCLCSへ提出した大陸棚の外側限界)の参考線を表示。
+   * EEZの計算には一切使わない。制度が違う(大陸棚 ≠ EEZ)
+   */
+  showTrough: boolean
+  /** 表示中の解説コラムid(COLUMNSのキー)。nullなら閉じている */
+  openColumnId: string | null
   setRealAreas: (v: Record<string, number>) => void
   setFocusCountry: (c: string) => void
   setSelected: (p: EezProperties | null) => void
@@ -62,6 +69,9 @@ interface AppState {
   setMeasuring: (v: boolean) => void
   setMeasureKm: (v: number | null) => void
   setShowTerritorial: (v: boolean) => void
+  setShowTrough: (v: boolean) => void
+  openColumn: (id: string) => void
+  closeColumn: () => void
   setMode: (m: ViewMode) => void
   setSimRunning: (v: boolean) => void
   setSimResult: (r: EezResult) => void
@@ -109,6 +119,8 @@ export const useAppStore = create<AppState>((set) => ({
   measuring: false,
   measureKm: null,
   showTerritorial: false,
+  showTrough: false,
+  openColumnId: null,
   setRealAreas: (v) => set({ realAreasKm2: v }),
   setFocusCountry: (c) => set({ focusCountry: c }),
   setSelected: (p) => set({ selected: p }),
@@ -121,6 +133,9 @@ export const useAppStore = create<AppState>((set) => ({
   setMeasuring: (v) => set({ measuring: v, measureKm: null }),
   setMeasureKm: (v) => set({ measureKm: v }),
   setShowTerritorial: (v) => set({ showTerritorial: v }),
+  setShowTrough: (v) => set({ showTrough: v }),
+  openColumn: (id) => set({ openColumnId: id }),
+  closeColumn: () => set({ openColumnId: null }),
   // シミュレーションを触った時点でヒントは役目を終える
   setMode: (m) => set(m === 'sim' ? { mode: m, hintSeen: true } : { mode: m }),
   setSimRunning: (v) => set({ simRunning: v }),

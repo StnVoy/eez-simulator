@@ -1,0 +1,393 @@
+/**
+ * 解説コラム(モーダルで表示)。
+ *
+ * 方針:
+ * - 各国の主張は、その国の政府・公的機関自身が公表した文書を出典にする。
+ *   相手国の立場を第三国の要約で代弁させない。
+ * - このアプリの計算モデルが特定の立場と一致してしまう箇所は、隠さず書く。
+ * - 計算できないこと(中国はEEZ境界線を公表していない等)は、
+ *   もっともらしい線を捏造せず「計算できない」と書く。
+ */
+
+export interface Source {
+  /** 発行主体(外務省・国連 など) */
+  publisher: string
+  title: string
+  url: string
+}
+
+/** 引用(原文を改変しない) */
+export interface Quote {
+  text: string
+  /** 出典の短い表示(文書番号・段落番号など) */
+  cite: string
+}
+
+/** ある国の主張を、その国自身の出典とともに示すブロック */
+export interface ClaimBlock {
+  /** COUNTRY_NAMES_JAのキー。色分けと揃える */
+  country: string
+  paragraphs: string[]
+  quote?: Quote
+  sources: Source[]
+}
+
+export interface ColumnSection {
+  heading?: string
+  paragraphs: string[]
+  quote?: Quote
+}
+
+export interface Column {
+  id: string
+  title: string
+  /** 導入の一文 */
+  lead: string
+  sections: ColumnSection[]
+  claims?: ClaimBlock[]
+  /** 「このアプリはこう扱っている」— 計算モデルとの対応関係 */
+  modelNote?: string[]
+  sources: Source[]
+}
+
+// ---- よく使う出典 ----
+
+const UNCLOS: Source = {
+  publisher: '国際連合',
+  title: '海洋法に関する国際連合条約(UNCLOS)全文',
+  url: 'https://www.un.org/depts/los/convention_agreements/texts/unclos/unclos_e.pdf',
+}
+
+const CAS_ECS: Source = {
+  publisher: '内閣官房 領土・主権対策企画調整室',
+  title: '東シナ海における日中韓間の境界未画定海域と「自制義務」',
+  url: 'https://www.cas.go.jp/jp/ryodo/kenkyu/senkaku/chapter04_column_03.html',
+}
+
+const MOFA_TERRITORY: Source = {
+  publisher: '外務省',
+  title: '日本の領土をめぐる情勢',
+  url: 'https://www.mofa.go.jp/mofaj/territory/',
+}
+
+const CLCS_JPN: Source = {
+  publisher: '国際連合 大陸棚限界委員会(CLCS)',
+  title: '日本の申請(2008年11月12日)と各国の口上書',
+  url: 'https://www.un.org/depts/los/clcs_new/submissions_files/submission_jpn.htm',
+}
+
+const CLCS_JPN_REC: Source = {
+  publisher: '国際連合 大陸棚限界委員会(CLCS)',
+  title: '日本の申請に対する勧告の要約(2012年4月19日採択)',
+  url: 'https://www.un.org/depts/los/clcs_new/submissions_files/jpn08/com_sumrec_jpn_fin.pdf',
+}
+
+const PCA_2016: Source = {
+  publisher: '常設仲裁裁判所(PCA)',
+  title: '南シナ海仲裁事件(フィリピン対中国)判断 プレスリリース(2016年7月12日)',
+  url: 'https://pcacases.com/web/sendAttach/1801',
+}
+
+const CHN_CLCS_ECS: Source = {
+  publisher: '国際連合 / 中華人民共和国',
+  title:
+    '東シナ海の一部における200海里を超える大陸棚の外側限界に関する中国の部分申請(2012年12月14日)',
+  url: 'https://www.un.org/depts/los/clcs_new/submissions_files/submission_chn_63_2012.htm',
+}
+
+// ---- コラム本体 ----
+
+const METHOD: Column = {
+  id: 'method',
+  title: 'EEZはどう計算しているか',
+  lead:
+    'このアプリは公表された境界線をなぞっているのではなく、島と海岸線から毎回EEZを計算し直しています。だから島を動かすと境界が動きます。その仕組みと、そこに紛れ込んでいる「立場」の話。',
+  sections: [
+    {
+      heading: 'やっていることは、たった一つ',
+      paragraphs: [
+        '海岸線と島から一定間隔で「基線点」を取り出し、海を細かい格子(2000×1677セル)に分けます。各セルについて最も近い基線点を探し、その距離が200海里(370.4km)以内なら、その基線点を持つ国のEEZに割り当てる。それだけです。',
+        '「最も近い基線点の国のものになる」というのは、2国の基線から等距離にある点を結んだ線 ―― 中間線 ―― で海を分けることと同じです。数学ではボロノイ分割と呼びます。島をドラッグすると境界が動くのは、たくさんのセルで「最も近い基線点」が入れ替わるからです。',
+        '距離は地球を球とみなした大圏距離で測り、面積は各セルを球面上の台形として足し上げています。メルカトル図法の地図では高緯度のセルが大きく見えますが、面積の計算では正しく小さく扱われます。',
+      ],
+    },
+    {
+      heading: '中間線は、中立ではない',
+      paragraphs: [
+        '中間線は国際判例でも境界画定の出発点として使われる、標準的な手法です。しかし国連海洋法条約74条が求めているのは「衡平な解決」であって、中間線そのものではありません。実際の境界は交渉や判決を通じて中間線から調整されます。',
+        'そして東シナ海では、中間線による境界画定を主張しているのは日本です。中国と韓国は、大陸棚について「自然の延長」に依拠した主張を行っています。',
+        'つまり、あなたが今見ている地図は中立な地図ではありません。少なくとも東シナ海に関しては、日本の立場に沿ったモデルで描かれた地図です。これはアプリの下部に小さく免責文を置いて済ませられる話ではないので、ここに書いておきます。',
+      ],
+    },
+    {
+      heading: 'すべての島に、等しい効果を与えている',
+      paragraphs: [
+        '現実の境界画定では、小さな島に完全な効果を与えず、部分的な効果しか認めない(あるいは無視する)ことがしばしば行われます。このアプリは、すべての基線点を平等に扱います。小さな島の影響は、現実よりも大きく出ます。',
+      ],
+    },
+    {
+      heading: 'モデルは近似である',
+      paragraphs: [
+        '自前計算による日本のEEZは約475万km²で、公称値(約447万km²)の約106%になります。漁業協定線や未画定海域、実際の直線基線を再現していないためです。',
+        'ここに出てくる数字は、桁と比率を感じ取るためのものです。法的な面積ではありません。',
+      ],
+    },
+  ],
+  sources: [UNCLOS, CAS_ECS],
+}
+
+const NORTHERN_TERRITORIES: Column = {
+  id: 'northern-territories',
+  title: '北方領土',
+  lead:
+    '争われているのは島の領有権だけで、海の分け方については日露ともに距離を基準にしています。だからこの3択は、そのまま両国の主張どおりのEEZになります。',
+  sections: [],
+  claims: [
+    {
+      country: 'Japan',
+      paragraphs: [
+        '北方四島(択捉島・国後島・色丹島・歯舞群島)は日本固有の領土であり、その帰属の問題を解決して平和条約を締結する、というのが日本政府の方針です。',
+      ],
+      sources: [MOFA_TERRITORY],
+    },
+    {
+      country: 'Russia',
+      paragraphs: [
+        '南クリル諸島はロシア連邦の不可分の一部であり、その主権は第二次世界大戦の結果として確立した動かしがたい現実である、というのがロシア外務省の立場です。平和条約は、日本が第二次世界大戦の結果を全面的に認めることを前提とするとしています。',
+      ],
+      sources: [
+        {
+          publisher: 'ロシア連邦外務省',
+          title: '南クリル諸島の問題について(On the issue of Southern Kuril Islands)',
+          url: 'https://www.mid.ru/en/foreign_policy/news/1513045/',
+        },
+      ],
+    },
+  ],
+  modelNote: [
+    '択捉島の基線点を、選んだ国の基線に加えて計算します。「係争中」を選ぶとどちらの基線にも加えません。',
+    '境界の引き方(中間線)は、どちらを選んでも変わりません。両国とも距離を基準としているため、領有権が決まればそのまま線が引けます。',
+  ],
+  sources: [MOFA_TERRITORY],
+}
+
+const TAKESHIMA: Column = {
+  id: 'takeshima',
+  title: '竹島 / 独島',
+  lead:
+    'この島を「どちらの国の基点として使うか」が、そのまま日韓それぞれの主張する中間線の違いになります。3択は、その基点の付け替えそのものです。',
+  sections: [
+    {
+      paragraphs: [
+        '1996年に日韓が相次いで200海里のEEZを宣言した結果、日本海に両国の主張が重なる海域が生まれました。境界は今も未画定で、漁業に関する事項だけを定めた協定が暫定的に機能しています。',
+      ],
+    },
+  ],
+  claims: [
+    {
+      country: 'Japan',
+      paragraphs: [
+        '竹島は歴史的事実に照らしても国際法上も明らかに日本固有の領土である、というのが日本政府の立場です。',
+      ],
+      sources: [
+        {
+          publisher: '外務省',
+          title: '竹島',
+          url: 'https://www.mofa.go.jp/mofaj/area/takeshima/index.html',
+        },
+      ],
+    },
+    {
+      country: 'South Korea',
+      paragraphs: [
+        '独島は歴史的・地理的・国際法的に明白な大韓民国の領土である、というのが韓国外交部の立場です。',
+      ],
+      sources: [
+        {
+          publisher: '大韓民国外交部',
+          title: '独島 — 大韓民国の領土である根拠',
+          url: 'https://dokdo.mofa.go.kr/jp/dokdo/reason.jsp',
+        },
+      ],
+    },
+  ],
+  modelNote: [
+    '竹島の基線点を、選んだ国の基線に加えて計算します。日本を選べば竹島は日本の基点となり中間線は西に寄り、韓国を選べば東に寄ります。',
+    'ただしこのアプリは竹島に完全な効果を与えています。現実の境界画定では、このような小さな島の効果は減らされることが多く、実際の線はここで見えるものより穏やかになり得ます。',
+  ],
+  sources: [UNCLOS],
+}
+
+const SENKAKU: Column = {
+  id: 'senkaku',
+  title: '尖閣諸島 / 釣魚島',
+  lead:
+    'このコラムは、アプリの他のどの部分よりも慎重に読んでください。ここには、このアプリが計算できないことがあります。',
+  sections: [
+    {
+      heading: 'そもそも「領土問題」と呼ぶこと自体が、一方の立場',
+      paragraphs: [
+        '日本政府の立場は「尖閣諸島は日本固有の領土であり、解決すべき領有権の問題はそもそも存在しない」というものです。したがって、このアプリが尖閣諸島を「領土問題」として3択にしていること自体が、日本政府の立場とは一致していません。',
+        '中立であろうとすると、どちらかの立場からは必ずずれます。このアプリは、対立の存在を可視化する側を選びました。それは選択であって、中立の達成ではありません。',
+      ],
+    },
+    {
+      heading: '中国のEEZ境界線は、存在しない',
+      paragraphs: [
+        '東シナ海の境界画定について、日本は中間線を主張しています。中国は大陸棚について「自然の延長」を援用し、自国の大陸棚は沖縄トラフまで自然に延長していると主張します。',
+        '2012年12月14日、中国はこの立場に沿って、沖縄トラフの軸上にある最深点10点を結ぶ線を「200海里を超える大陸棚の外側限界」として国連の大陸棚限界委員会(CLCS)に提出しました。この10点は、ツールの「沖縄トラフ」で地図に表示できます。',
+        'ただし、これは大陸棚の主張であってEEZの境界線ではありません。大陸棚とEEZは別の制度です。距離に基づくEEZの境界をどこに引くべきかについて、中国は具体的な線を示していません。',
+      ],
+      quote: {
+        text:
+          '中国・韓国の立場からは大陸棚については自然の延長に基づいた境界画定を行うとしても、距離に基づく制度であるEEZについてはどのように境界画定を行うのかが問題となるはずであるが、この点に関する具体的な主張はなされていない',
+        cite: '内閣官房 領土・主権対策企画調整室',
+      },
+    },
+    {
+      heading: 'だから、このアプリは線を引き直さない',
+      paragraphs: [
+        '尖閣諸島で「中国」を選んでも、EEZが沖縄トラフまで広がることはありません。存在しない主張を中国に代弁させることになるからです。切り替わるのは尖閣諸島の基線点の帰属だけで、境界の引き方は中間線のままです。',
+        '線が引けないから紛争が終わらない ―― この地図に描けないことのほうが、描けることより多くを語っていると思います。',
+      ],
+    },
+  ],
+  claims: [
+    {
+      country: 'Japan',
+      paragraphs: [
+        '尖閣諸島は歴史的にも国際法上も明らかに日本固有の領土であり、現に日本はこれを有効に支配している。したがって尖閣諸島をめぐって解決すべき領有権の問題はそもそも存在しない、というのが日本政府の立場です。',
+      ],
+      sources: [
+        {
+          publisher: '外務省',
+          title: '尖閣諸島',
+          url: 'https://www.mofa.go.jp/mofaj/area/senkaku/index.html',
+        },
+      ],
+    },
+    {
+      country: 'China',
+      paragraphs: [
+        '釣魚島及びその附属島嶼は中国領土の不可分の一部である、というのが中国政府の立場です。国務院新聞弁公室が2012年9月に発表した白書『釣魚島は中国の固有の領土である』に、その主張がまとめられています。',
+      ],
+      quote: {
+        text:
+          'Diaoyu Dao and its affiliated islands are an inseparable part of the Chinese territory.',
+        cite: '中国国務院新聞弁公室 白書(2012年9月)',
+      },
+      sources: [
+        {
+          publisher: '中華人民共和国国務院新聞弁公室',
+          title: '白書『Diaoyu Dao, an Inherent Territory of China』(2012年9月)',
+          url: 'https://english.www.gov.cn/archive/white_paper/2014/08/23/content_281474983043212.htm',
+        },
+      ],
+    },
+  ],
+  modelNote: [
+    '尖閣諸島の基線点を、選んだ国の基線に加えて計算します。それだけです。',
+    '沖縄トラフの線は、EEZの計算には一切使っていません。制度が違うからです。',
+  ],
+  sources: [CAS_ECS, CHN_CLCS_ECS, UNCLOS],
+}
+
+const OKINOTORISHIMA: Column = {
+  id: 'okinotorishima',
+  title: '沖ノ鳥島は「島」か「岩」か',
+  lead:
+    '国連海洋法条約121条3項をめぐる争い。このアプリが扱うなかで、最も法的に生きている論点です。数m²の岩の周りに、日本の国土面積より広い海が懸かっています。',
+  sections: [
+    {
+      heading: '条文はこれだけ',
+      paragraphs: [
+        '国連海洋法条約121条3項は、たった一文です。この一文の解釈に、約40万km²が懸かっています。',
+      ],
+      quote: {
+        text:
+          '人間の居住又は独自の経済的生活を維持することのできない岩は、排他的経済水域又は大陸棚を有しない。',
+        cite: '国連海洋法条約 第121条3項',
+      },
+    },
+    {
+      heading: '国連に残された、三者三様の記録',
+      paragraphs: [
+        '日本は2008年11月12日、沖ノ鳥島を基点の一つとする延長大陸棚をCLCSに申請しました。これに対し中国と韓国が口上書で異議を申し立て、日本が反論しました。すべて国連の公開文書です。',
+        '中国(2009年2月6日、CML/2/2009): 「利用可能な科学的データは、沖ノ鳥の岩がその自然の状態において人間の居住も独自の経済的生活も維持できないことを完全に示しており、したがって排他的経済水域も大陸棚も有しない」',
+        '韓国(2009年2月27日、MUN/046/09): 沖ノ鳥島は121条3項の岩であり、200海里を超える大陸棚を有しない。またその法的地位は科学的・技術的な問題ではなく121条の解釈適用の問題であって、委員会の権限外である。',
+        '日本(2012年4月9日、PM/12/078): 委員会が沖ノ鳥島に関する区域について勧告を行うべきでないという中国・韓国の議論には、条約・附属書・委員会手続規則のいずれにも法的根拠がない。',
+      ],
+      quote: {
+        text:
+          'It is to be noted that the so-called Oki-no-Tori Shima Island is in fact a rock as referred to in Article 121(3) of the Convention.',
+        cite: '中国 口上書 CML/2/2009 (2009年2月6日)',
+      },
+    },
+    {
+      heading: '委員会は、片方だけを棚上げした',
+      paragraphs: [
+        'CLCSは2012年4月、日本が申請した7区域のうち、九州・パラオ海嶺南部(KPR)についてのみ勧告を行わないと決めました。口上書で指摘された事項が解決されるまで勧告を行う立場にない、というのが理由です。',
+        '一方で、同じく沖ノ鳥島を基点とする四国海盆(SKB)には勧告が出ています。つまり日本は、沖ノ鳥島を基点とする延長大陸棚を、一部は認められ、一部は保留されました。この非対称が、この問題の宙づりの状態をよく表しています。',
+        'なお、CLCSが扱うのは200海里を超える大陸棚であって、EEZでも領有権でもありません。委員会の勧告は「沖ノ鳥島は島である」と認定したものではありません。',
+      ],
+      quote: {
+        text:
+          'The Commission considers that it will not be in a position to take action to make recommendations on the Southern Kyushu-Palau Ridge Region (KPR) until such time as the matters referred to in the notes verbales have been resolved.',
+        cite: 'CLCS 勧告の要約 第20項(2012年)',
+      },
+    },
+    {
+      heading: '2016年、基準が示された',
+      paragraphs: [
+        '南シナ海仲裁裁判所は2016年、121条3項の判断は「地形が自然の状態において、安定した人間の共同体、または外部の資源に依存せず純粋な採取にとどまらない経済活動を維持しうる客観的な能力」によると述べました。人が常駐していても、それが外部からの補給に依存していれば足りない、という基準です。',
+        'この基準をそのまま当てはめれば、沖ノ鳥島の法的地位は厳しくなります。ただし仲裁判断はフィリピンと中国の間の事件についてのものであり、沖ノ鳥島について判断したものではありません。',
+      ],
+    },
+  ],
+  modelNote: [
+    '情報カードの「島(EEZあり)/岩(EEZなし)」トグルは、この対立をそのまま反映します。「岩」を選ぶと、沖ノ鳥島の基線点を計算から外します。',
+    '既定は日本の立場(島)です。既定値であることと、正しさは別です。',
+  ],
+  sources: [UNCLOS, CLCS_JPN, CLCS_JPN_REC, PCA_2016],
+}
+
+const SPRATLY: Column = {
+  id: 'spratly',
+  title: '南沙諸島と2016年の仲裁判断',
+  lead:
+    '同じ岩礁を、どの国が支配するとどれだけの海域が生まれるか。沖ノ鳥島とまったく同じ構図を、多国間で見られる場所です。ただし2016年、その前提そのものが否定されました。',
+  sections: [
+    {
+      paragraphs: [
+        '南沙諸島は南シナ海に散らばる100以上の岩礁群で、中国・ベトナム・フィリピン・マレーシア・台湾・ブルネイが全部または一部の領有を主張しています。',
+      ],
+    },
+    {
+      heading: 'どの地形も、EEZを生まない',
+      paragraphs: [
+        '2016年7月12日、国連海洋法条約附属書VIIに基づく仲裁裁判所(フィリピン対中国)は全員一致の判断を下し、南沙諸島のいずれの地形も200海里を超える水域を生む能力を有しないと結論しました。南沙諸島を一体として扱っても水域は生まれない、とも述べています。',
+        '高潮時に水面上にある地形は12海里の領海を生みますが、EEZは生みません。人が駐留していても、それが外部からの補給に依存する限り「人間の居住」には当たらない ―― これが裁判所の基準です。',
+        '中国は、この仲裁判断を受け入れず承認しないとの立場をとっています。',
+      ],
+      quote: {
+        text:
+          'Accordingly, the Tribunal concluded that none of the Spratly Islands is capable of generating extended maritime zones.',
+        cite: 'PCA プレスリリース(2016年7月12日)',
+      },
+    },
+  ],
+  modelNote: [
+    '既定は「どの地形もEEZを生まない(2016年仲裁判断)」です。この場合、南沙諸島の基線点は計算に入りません。',
+    '支配国を選ぶと、その地形に完全な効果を与えた場合のEEZを描きます。これは仲裁判断とは異なる仮定に立った、思考実験としての表示です。',
+  ],
+  sources: [PCA_2016, UNCLOS],
+}
+
+export const COLUMNS: Record<string, Column> = {
+  method: METHOD,
+  'northern-territories': NORTHERN_TERRITORIES,
+  takeshima: TAKESHIMA,
+  senkaku: SENKAKU,
+  okinotorishima: OKINOTORISHIMA,
+  spratly: SPRATLY,
+}

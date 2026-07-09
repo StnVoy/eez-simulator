@@ -7,7 +7,12 @@ import {
 } from '../lib/config'
 import { islandDefs, useAppStore } from '../store/useAppStore'
 import { useAnimatedNumber } from '../lib/useAnimatedNumber'
-import { ARTICLE121, ISLAND_INFO, SCENARIOS } from '../data/islandInfo'
+import {
+  ARTICLE121,
+  ISLAND_INFO,
+  LOCKED_ISLAND_IDS,
+  SCENARIOS,
+} from '../data/islandInfo'
 import { WorldRanking } from './WorldRanking'
 import {
   applyScenario,
@@ -82,6 +87,8 @@ function IslandCard({ islandId }: { islandId: string }) {
   if (!island || !st) return null
   const info = ISLAND_INFO[islandId]
   const art121 = ARTICLE121[islandId]
+  // 領有権が争われている島は、動かすことも消すこともできない
+  const locked = LOCKED_ISLAND_IDS.has(islandId)
   const ja = (c: string | null) => (c ? (COUNTRY_NAMES_JA[c] ?? c) : '未帰属')
 
   return (
@@ -108,7 +115,9 @@ function IslandCard({ islandId }: { islandId: string }) {
                 void setIslandOwner(islandId, e.target.value || null)
               }
             >
-              <option value="">未帰属(どの国のEEZにもならない)</option>
+              <option value="">
+                {info?.unassignedLabel ?? '未帰属(どの国のEEZにもならない)'}
+              </option>
               {island.ownerOptions.map((c) => (
                 <option key={c} value={c}>
                   {COUNTRY_NAMES_JA[c] ?? c}
@@ -166,6 +175,9 @@ function IslandCard({ islandId }: { islandId: string }) {
 
       {info && <p className="area-note">{info.trivia}</p>}
       {info?.note && <p className="area-footnote">※ {info.note}</p>}
+
+      {info?.columnId && <ColumnLink columnId={info.columnId} />}
+
       {island.custom ? (
         <button
           className="action-button action-button-danger"
@@ -175,8 +187,10 @@ function IslandCard({ islandId }: { islandId: string }) {
           この島を削除
         </button>
       ) : (
-        // 実在する島は「消す」=OFF。いつでも復活できる
-        !art121 && (
+        // 実在する島は「消す」=OFF。いつでも復活できる。
+        // ただし領有権が争われている島は、動かすことも消すこともさせない
+        !art121 &&
+        !locked && (
           <button
             className="action-button action-button-subtle"
             disabled={simRunning}
@@ -186,7 +200,22 @@ function IslandCard({ islandId }: { islandId: string }) {
           </button>
         )
       )}
+      {locked && (
+        <p className="locked-note">
+          🔒 領有権が争われている島です。移動もON/OFFもできません。領有権は条約と歴史と実効支配の問題であって、島の位置の問題ではないからです。
+        </p>
+      )}
     </section>
+  )
+}
+
+/** 解説コラムを開くリンクボタン */
+function ColumnLink({ columnId, label }: { columnId: string; label?: string }) {
+  const openColumn = useAppStore((s) => s.openColumn)
+  return (
+    <button className="column-link" onClick={() => openColumn(columnId)}>
+      {label ?? '📖 各国の主張と出典を読む'}
+    </button>
   )
 }
 
@@ -238,8 +267,9 @@ function DisputeCard({ disputeId }: { disputeId: string }) {
           {COUNTRY_NAMES_JA[opponent] ?? opponent}
         </button>
       </div>
+      <ColumnLink columnId={disputeId} />
       <p className="area-footnote">
-        既定は日本の公式見解ベース。本アプリは特定の立場を示しません。
+        既定は日本の公式見解ベース。境界の引き方(中間線)は、どの国を選んでも変わりません。
       </p>
     </section>
   )
@@ -268,6 +298,9 @@ export function SidePanel() {
   const measureKm = useAppStore((s) => s.measureKm)
   const showTerritorial = useAppStore((s) => s.showTerritorial)
   const setShowTerritorial = useAppStore((s) => s.setShowTerritorial)
+  const showTrough = useAppStore((s) => s.showTrough)
+  const setShowTrough = useAppStore((s) => s.setShowTrough)
+  const openColumn = useAppStore((s) => s.openColumn)
   const [placeCountry, setPlaceCountry] = useState('Japan')
 
   const allIslands = { ...(baseline?.islands ?? {}), ...customIslands }
@@ -337,6 +370,7 @@ export function SidePanel() {
             ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島は既定で日本の基線に含みます。'
             : '※ Marine Regionsデータの算出値。日本の公称値(約447万km²)は領海等を含む区分のため異なります。'}
         </p>
+        <ColumnLink columnId="method" label="📐 EEZはどう計算しているか" />
       </section>
 
       {countryDeltas.length > 0 && (
@@ -385,7 +419,16 @@ export function SidePanel() {
                 const opponent = d.claimants.find((c) => c !== 'Japan') ?? ''
                 return (
                   <li key={id}>
-                    <span className="dispute-name">{d.nameJa}</span>
+                    <span className="dispute-name">
+                      {d.nameJa}
+                      <button
+                        className="dispute-info"
+                        aria-label={`${d.nameJa}の解説を読む`}
+                        onClick={() => openColumn(id)}
+                      >
+                        ?
+                      </button>
+                    </span>
                     <div className="dispute-toggle">
                       <button
                         className={current === 'Japan' ? 'active' : ''}
@@ -426,28 +469,34 @@ export function SidePanel() {
               (Math.abs(st.lon - isl.anchor[0]) > 1e-6 ||
                 Math.abs(st.lat - isl.anchor[1]) > 1e-6)
             const owner = st?.owner ?? isl.owner
+            const locked = LOCKED_ISLAND_IDS.has(id)
             return (
               <li key={id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={st?.enabled ?? true}
-                    disabled={simRunning}
-                    onChange={() => void toggleIsland(id)}
-                  />
-                  <span
-                    className="island-name-link"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setSelectedIslandId(id)
-                    }}
-                  >
-                    {isl.nameJa}
+                {/* 名前はlabelの外に出す。ロック時にチェックボックスを
+                    無効化しても、情報カードは開けるようにするため */}
+                <input
+                  type="checkbox"
+                  aria-label={`${isl.nameJa}をEEZの計算に含める`}
+                  checked={st?.enabled ?? true}
+                  disabled={simRunning || locked}
+                  onChange={() => void toggleIsland(id)}
+                />
+                <span
+                  className="island-name-link"
+                  onClick={() => setSelectedIslandId(id)}
+                >
+                  {isl.nameJa}
+                </span>
+                {locked && (
+                  <span className="island-locked-tag" title="領有権が争われている島です">
+                    🔒
                   </span>
-                </label>
+                )}
                 {isl.ownerOptions && (
                   <span className="island-owner-tag">
-                    {owner ? (COUNTRY_NAMES_JA[owner] ?? owner) : '未帰属'}
+                    {owner
+                      ? (COUNTRY_NAMES_JA[owner] ?? owner)
+                      : (ISLAND_INFO[id]?.unassignedLabel ? '仲裁判断' : '未帰属')}
                   </span>
                 )}
                 {moved && <span className="island-moved-tag">移動中</span>}
@@ -466,7 +515,7 @@ export function SidePanel() {
           })}
         </ul>
         <p className="area-footnote">
-          名前をタップで情報カード。チェックを外すと「その島が無かったら」を計算します(いつでも戻せます)。マーカーはドラッグで移動できます。
+          名前をタップで情報カード。チェックを外すと「その島が無かったら」を計算します(いつでも戻せます)。マーカーはドラッグで移動できます。🔒 は領有権が争われている島で、移動もON/OFFもできません。
         </p>
       </section>
 
@@ -554,6 +603,21 @@ export function SidePanel() {
         <p className="area-footnote">
           有効な各島に、領海(12海里)とEEZ(200海里)の同心円を重ねます。桁違いのスケール差が分かります。
         </p>
+        <label className="tool-toggle">
+          <input
+            type="checkbox"
+            checked={showTrough}
+            onChange={(e) => setShowTrough(e.target.checked)}
+          />
+          <span>沖縄トラフ(中国の大陸棚主張)を表示</span>
+        </label>
+        <p className="area-footnote">
+          中国が2012年に国連CLCSへ提出した「200海里を超える大陸棚の外側限界」の10点。
+          <strong>大陸棚の主張であって、EEZの境界線ではありません。</strong>
+          EEZの計算には一切使っていません。
+        </p>
+        <ColumnLink columnId="senkaku" label="📖 なぜEEZの計算に使わないのか" />
+
         <label className="tool-toggle">
           <input
             type="checkbox"

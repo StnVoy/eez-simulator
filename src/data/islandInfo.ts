@@ -7,7 +7,24 @@ export interface IslandInfo {
   trivia: string
   /** センシティブな論点の中立的な注記(あれば) */
   note?: string
+  /** 「詳しく」から開く解説コラムのid(COLUMNSのキー) */
+  columnId?: string
+  /** 帰属を選ぶselectの「未帰属」選択肢のラベル(既定より具体的に書きたい島用) */
+  unassignedLabel?: string
 }
+
+/**
+ * 領有権が争われている島。ドラッグもON/OFFもできない。
+ *
+ * 島を動かせる・消せるという操作は「主権とは幾何学である」という誤った
+ * 感覚を残す。領有権は条約と歴史と実効支配の積み重ねであって、位置の
+ * 問題ではない。これらの島について意味のある操作は「どちらの国の基点と
+ * して使うか」だけなので、それだけを残す。
+ */
+export const LOCKED_ISLAND_IDS: ReadonlySet<string> = new Set([
+  'etorofu', // 北方領土
+  'spratly', // 南沙諸島
+])
 
 export const ISLAND_INFO: Record<string, IslandInfo> = {
   okinotorishima: {
@@ -16,6 +33,7 @@ export const ISLAND_INFO: Record<string, IslandInfo> = {
       '日本最南端の島。満潮時にはテーブルほどの岩が2つ海面に出るだけだが、国土面積(約37.8万km²)を上回る広さのEEZを支える。波の浸食から守るため、約300億円をかけた護岸で保護されている。',
     note:
       '国連海洋法条約121条は「人間の居住又は独自の経済的生活を維持できない岩」はEEZを持たないと定めており、中国・韓国などは沖ノ鳥島を「岩」と主張、日本は「島」との立場をとる。本アプリは日本の立場(EEZあり)を既定とする。',
+    columnId: 'okinotorishima',
   },
   minamitorishima: {
     landAreaText: '約1.5km²',
@@ -32,7 +50,8 @@ export const ISLAND_INFO: Record<string, IslandInfo> = {
     trivia:
       '北方四島で最大の島。沖縄本島の約2.6倍の面積があり、周辺は世界有数の好漁場として知られる。',
     note:
-      '北方領土は日本固有の領土というのが日本の立場だが、現在はロシアが実効支配しており係争中。本アプリは既定で日本の基線に含めて計算している。',
+      '北方領土は日本固有の領土というのが日本の立場だが、現在はロシアが実効支配しており係争中。本アプリは既定で日本の基線に含めて計算している。領有権の問題は島の位置とは無関係なので、この島は動かせない。',
+    columnId: 'northern-territories',
   },
   tsushima: {
     landAreaText: '約709km²',
@@ -49,7 +68,9 @@ export const ISLAND_INFO: Record<string, IslandInfo> = {
     trivia:
       '南シナ海に散らばる100以上の岩礁群。石油・ガス・漁業資源と航路の要衝で、埋め立てによる人工島の造成が続く。小さな岩がどれだけ広いEEZを生むか——沖ノ鳥島と同じ構図を多国間で見られる。',
     note:
-      '中国・ベトナム・フィリピン・マレーシア・台湾・ブルネイが全部または一部の領有を主張する、世界有数の係争海域。本アプリはどの国の立場も取らない。「支配国」を選んで、同じ岩礁が国ごとにどれだけの海域を生むかを観察するための機能である。',
+      '2016年の仲裁判断は、南沙諸島のいずれの地形もEEZを生まないと結論した。既定はこの立場。支配国を選ぶと、地形に完全な効果を与えた場合のEEZを描く(仲裁判断とは異なる仮定)。',
+    columnId: 'spratly',
+    unassignedLabel: 'どの地形もEEZを生まない(2016年仲裁判断)',
   },
 }
 
@@ -92,7 +113,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'no-remote-islands',
     label: 'もしも国境の離島が全部なかったら',
-    description: '4つの島(沖ノ鳥島・南鳥島・与那国島・択捉島)を同時にOFF',
-    disable: ['okinotorishima', 'minamitorishima', 'yonaguni', 'etorofu'],
+    // 領有権が争われている島(択捉島)は、消す操作の対象にしない
+    description: '4つの島(沖ノ鳥島・南鳥島・与那国島・小笠原)を同時にOFF',
+    disable: ['okinotorishima', 'minamitorishima', 'yonaguni', 'ogasawara'],
   },
 ]

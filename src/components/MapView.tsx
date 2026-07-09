@@ -28,6 +28,8 @@ import {
   endDrag,
   startDrag,
 } from '../sim/controller'
+import { LOCKED_ISLAND_IDS } from '../data/islandInfo'
+import { OKINAWA_TROUGH_POINTS } from '../data/okinawaTrough'
 
 const BASE = import.meta.env.BASE_URL
 // 開発時はデータ再生成後の古いキャッシュ描画を避けるためURLを毎読み込みで変える
@@ -36,6 +38,26 @@ const V = import.meta.env.DEV ? `?t=${Date.now()}` : ''
 const EMPTY_FC = {
   type: 'FeatureCollection' as const,
   features: [] as Feature[],
+}
+
+/**
+ * 沖縄トラフの参考レイヤー。中国がCLCSへ提出した固定点をそのまま線と点で描く。
+ * EEZ計算には使わない(大陸棚の主張であってEEZの境界線ではない)
+ */
+const TROUGH_FC = {
+  type: 'FeatureCollection' as const,
+  features: [
+    {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: { type: 'LineString' as const, coordinates: OKINAWA_TROUGH_POINTS },
+    },
+    ...OKINAWA_TROUGH_POINTS.map((c, i) => ({
+      type: 'Feature' as const,
+      properties: { fp: `FP${i + 1}` },
+      geometry: { type: 'Point' as const, coordinates: c },
+    })),
+  ] as Feature[],
 }
 
 /** 海の背景色。EEZ塗りはこの上に半透明を重ねた見た目を再現する */
@@ -96,6 +118,7 @@ const mapStyle: StyleSpecification = {
     // 実行時に更新する空ソース(領海リング・距離測定)
     rings: { type: 'geojson', data: EMPTY_FC },
     measure: { type: 'geojson', data: EMPTY_FC },
+    trough: { type: 'geojson', data: TROUGH_FC },
   },
   layers: [
     { id: 'ocean', type: 'background', paint: { 'background-color': '#c6dcec' } },
@@ -217,6 +240,33 @@ const mapStyle: StyleSpecification = {
       paint: { 'line-color': '#0d2444', 'line-width': 1.4 },
     },
     {
+      // 沖縄トラフ(中国がCLCSへ提出した大陸棚の外側限界)。
+      // EEZの計算には使わない参考線なので、色も破線パターンもEEZ系と揃えない
+      id: 'trough-line',
+      type: 'line',
+      source: 'trough',
+      layout: { visibility: 'none', 'line-cap': 'round' },
+      paint: {
+        'line-color': '#7a1f4b',
+        'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1.6, 8, 3.4],
+        'line-dasharray': [1, 2.2],
+      },
+    },
+    {
+      // 中国が示した10個の固定点そのもの
+      id: 'trough-points',
+      type: 'circle',
+      source: 'trough',
+      filter: ['==', ['geometry-type'], 'Point'],
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2, 8, 4.5],
+        'circle-color': '#7a1f4b',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 1,
+      },
+    },
+    {
       // 距離測定の線
       id: 'measure-line',
       type: 'line',
@@ -325,6 +375,7 @@ export function MapView() {
   const placing = useAppStore((s) => s.placing)
   const measuring = useAppStore((s) => s.measuring)
   const showTerritorial = useAppStore((s) => s.showTerritorial)
+  const showTrough = useAppStore((s) => s.showTrough)
   const selectedIslandId = useAppStore((s) => s.selectedIslandId)
   const measurePtsRef = useRef<[number, number][]>([])
 
@@ -499,31 +550,36 @@ export function MapView() {
     }
     for (const [id, isl] of Object.entries(defs)) {
       if (markers[id]) continue
+      // 領有権が争われている島は動かせない(位置は領有権と無関係)
+      const locked = LOCKED_ISLAND_IDS.has(id)
       const el = document.createElement('div')
       el.className = isl.custom ? 'island-marker island-marker-custom' : 'island-marker'
+      if (locked) el.classList.add('island-marker-locked')
       const dot = document.createElement('span')
       dot.className = 'island-dot'
       const label = document.createElement('span')
       label.className = 'island-label'
       label.textContent = isl.nameJa
       el.append(dot, label)
-      const marker = new maplibregl.Marker({ element: el, draggable: true })
+      const marker = new maplibregl.Marker({ element: el, draggable: !locked })
         .setLngLat(isl.anchor)
         .addTo(mapObj)
       let dragged = false
-      marker.on('dragstart', () => {
-        dragged = true
-        draggingRef.current = id
-        void startDrag(id)
-      })
-      marker.on('drag', () => {
-        const p = marker.getLngLat()
-        dragTo(id, p.lng, p.lat)
-      })
-      marker.on('dragend', () => {
-        draggingRef.current = null
-        void endDrag(id)
-      })
+      if (!locked) {
+        marker.on('dragstart', () => {
+          dragged = true
+          draggingRef.current = id
+          void startDrag(id)
+        })
+        marker.on('drag', () => {
+          const p = marker.getLngLat()
+          dragTo(id, p.lng, p.lat)
+        })
+        marker.on('dragend', () => {
+          draggingRef.current = null
+          void endDrag(id)
+        })
+      }
       // ドラッグではない純粋なクリックで情報カードを開く
       el.addEventListener('click', (ev) => {
         ev.stopPropagation()
@@ -629,6 +685,16 @@ export function MapView() {
     selectedIslandId,
     baseline,
   ])
+
+  // 沖縄トラフ(中国の大陸棚主張)の参考線。EEZ計算とは無関係な表示切替
+  useEffect(() => {
+    const map = mapObj
+    if (!map || !styleReady) return
+    const v = showTrough ? 'visible' : 'none'
+    for (const id of ['trough-line', 'trough-points']) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v)
+    }
+  }, [mapObj, styleReady, showTrough])
 
   // ストアの島状態をマーカーに反映(リセット時の位置復帰・OFF時の淡色化)
   useEffect(() => {

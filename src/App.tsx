@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import { MapView } from './components/MapView'
 import { SidePanel } from './components/SidePanel'
+import { InfoModal } from './components/InfoModal'
 import { useAppStore } from './store/useAppStore'
 import { initBaseline, resetAll } from './sim/controller'
 
 export default function App() {
   const mode = useAppStore((s) => s.mode)
+  const openColumn = useAppStore((s) => s.openColumn)
 
   useEffect(() => {
     void initBaseline()
@@ -20,6 +22,12 @@ export default function App() {
             ? '実データ表示モード'
             : 'シミュレーションモード(等距離中間線)'}
         </span>
+        <button
+          className="header-column-button"
+          onClick={() => openColumn('method')}
+        >
+          EEZはどう計算しているか
+        </button>
         <button className="reset-button" onClick={resetAll}>
           リセット
         </button>
@@ -28,6 +36,7 @@ export default function App() {
         <MapView />
         <SidePanel />
       </main>
+      <InfoModal />
       <footer className="app-footer">
         <span>
           本アプリは教育目的の簡略モデルであり、法的な境界を示すものではありません。
