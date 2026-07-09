@@ -390,7 +390,55 @@ const SPRATLY: Column = {
   sources: [PCA_2016, UNCLOS],
 }
 
+/** フッターに入りきらない免責・出典・ライセンスの置き場(スマホで開く) */
+const ABOUT: Column = {
+  id: 'about',
+  title: 'このアプリについて',
+  lead:
+    '日本の排他的経済水域(EEZ)を地図上で可視化し、島を動かしたりON/OFFすると、その場でEEZを計算し直す教育用アプリです。',
+  sections: [
+    {
+      heading: '免責',
+      paragraphs: [
+        '本アプリは教育目的の簡略モデルであり、法的な境界を示すものではありません。表示される面積は、桁と比率を感じ取るためのものです。',
+        'すべての海域を等距離中間線で機械的に配分しており、現実の漁業協定線や未画定海域は再現していません。中間線モデルは中立ではないという点について、「EEZはどう計算しているか」に詳しく書いています。',
+      ],
+    },
+    {
+      heading: '情報の時点',
+      paragraphs: [
+        `本シミュレーターは${SOURCES_AS_OF}時点で公開されていた情報をもとに作成されています。各国の主張、国際機関の判断、条約の解釈、参照先の文書はいずれも変わりうるものです。`,
+      ],
+    },
+    {
+      heading: 'データ出典とライセンス',
+      paragraphs: [
+        'EEZの実データは Marine Regions (VLIZ) World EEZ v12、海岸線と基線点は Natural Earth 1:10m を使っています。',
+        'Marine Regions のデータが CC BY-NC-SA 4.0 のため、本アプリも同じ条件(表示・非営利・継承)で提供しています。商用利用はできません。',
+      ],
+    },
+  ],
+  sources: [
+    {
+      publisher: 'VLIZ',
+      title: 'Marine Regions — World EEZ v12 (CC BY-NC-SA 4.0)',
+      url: 'https://www.marineregions.org/',
+    },
+    {
+      publisher: 'Natural Earth',
+      title: 'Natural Earth 1:10m (public domain)',
+      url: 'https://www.naturalearthdata.com/',
+    },
+    {
+      publisher: 'Creative Commons',
+      title: 'CC BY-NC-SA 4.0 ライセンス条文',
+      url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ja',
+    },
+  ],
+}
+
 export const COLUMNS: Record<string, Column> = {
+  about: ABOUT,
   method: METHOD,
   'northern-territories': NORTHERN_TERRITORIES,
   takeshima: TAKESHIMA,

@@ -46,13 +46,21 @@ export default function App() {
       </main>
       <InfoModal />
       <footer className="app-footer">
-        <span>
+        {/* 広い画面では全文。狭い画面では1行にして、中身はモーダルで読む
+            (出典表示はライセンス上必須なので、消さずに畳む) */}
+        <span className="label-wide">
           本アプリは教育目的の簡略モデルであり、法的な境界を示すものではありません。
           {SOURCES_AS_OF}時点の情報をもとに作成しています(各国の主張や国際的な判断は変わりえます)。
         </span>
-        <span>
+        <span className="label-wide">
           出典: Marine Regions (VLIZ) World EEZ v12 (CC BY-NC-SA) / Natural Earth
         </span>
+        <button
+          className="footer-compact label-narrow"
+          onClick={() => openColumn('about')}
+        >
+          ⓘ 教育目的の簡略モデルです・出典とライセンス
+        </button>
       </footer>
     </div>
   )
