@@ -14,6 +14,7 @@ import {
   SCENARIOS,
 } from '../data/islandInfo'
 import { WorldRanking } from './WorldRanking'
+import { WORLD_EEZ } from '../data/worldEez'
 import {
   applyScenario,
   getIslandContribution,
@@ -422,6 +423,13 @@ export function SidePanel() {
   const landArea = COUNTRY_LAND_AREA_KM2[focusCountry]
   const ratio =
     shownArea !== null && landArea ? (shownArea / landArea).toFixed(1) : null
+  // この地図(太平洋西部)に収まらない国は、実データの合計が全世界の値に届かない。
+  // 世界ランキングの値と比べて明らかに足りなければ、その旨を注記する
+  const worldRef = WORLD_EEZ.find((e) => e.key === focusCountry)
+  const partialCoverage =
+    !isSim && worldRef && rawArea !== null && rawArea < worldRef.eezManKm2 * 10_000 * 0.95
+      ? worldRef
+      : null
   const delta =
     isSim && defaultSimAreas !== null
       ? (simResult.areaKm2[focusCountry] ?? 0) -
@@ -488,9 +496,20 @@ export function SidePanel() {
         )}
         <p className="area-footnote">
           {isSim
-            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島は既定で日本の基線に含みます。'
-            : '※ Marine Regionsデータの算出値。日本の公称値(約447万km²)は領海等を含む区分のため異なります。'}
+            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島は既定で日本の基線に含みます。日本の公称値(約447万km²)の約106%。'
+            : focusCountry === 'Japan'
+              ? // 公称値との差は「領海の有無」ではなく「係争海域の切り出し」による。
+                // MRのポリゴンは領海を含む(海岸から8kmの点も内側にある)
+                '※ Marine Regionsの算出値。北方領土・尖閣・竹島の周辺と日韓暫定水域(合計約37万km²)は「係争中/共同管理」の別海域として切り出されており、この数字には含まれません。足し戻すと約444万km²で、日本の公称値(約447万km²)の99.3%になります。'
+              : '※ Marine Regionsの算出値。係争中・共同管理の海域は、どの国の取り分とも決まっていないため含みません。'}
         </p>
+        {partialCoverage && (
+          <p className="area-footnote">
+            ※ この地図は太平洋西部だけを収めているため、{focusJa}
+            のEEZはこの範囲に入るぶんしか集計できていません(全世界では約
+            {partialCoverage.eezManKm2.toLocaleString('ja-JP')}万km²)。
+          </p>
+        )}
         <ColumnLink columnId="method" label="📐 EEZはどう計算しているか" />
       </section>
 

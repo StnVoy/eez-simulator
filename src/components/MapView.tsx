@@ -364,7 +364,6 @@ export function MapView() {
   const disputeMarkersRef = useRef<Record<string, maplibregl.Marker>>({})
   const draggingRef = useRef<string | null>(null)
   const setSelected = useAppStore((s) => s.setSelected)
-  const setRealAreas = useAppStore((s) => s.setRealAreas)
   const mode = useAppStore((s) => s.mode)
   const simResult = useAppStore((s) => s.simResult)
   const baseline = useAppStore((s) => s.baseline)
@@ -448,21 +447,8 @@ export function MapView() {
       )
     })
 
-    // 各国のEEZ面積はデータ属性(Marine Regions算出値)から取得
-    map.on('sourcedata', function onSource(e) {
-      if (e.sourceId !== 'eez' || !e.isSourceLoaded) return
-      const feats = map.querySourceFeatures('eez')
-      if (feats.length === 0) return
-      map.off('sourcedata', onSource)
-      const areas: Record<string, number> = {}
-      for (const f of feats) {
-        if (f.properties.pol_type !== '200NM') continue
-        const c = f.properties.sovereign1 as string
-        // MultiPolygonはタイル毎に複数featureで返るため最大値を採用
-        areas[c] = Math.max(areas[c] ?? 0, f.properties.area_km2 as number)
-      }
-      setRealAreas(areas)
-    })
+    // 各国のEEZ面積の集計は lib/realAreas.ts が担当する
+    // (タイル単位のフィーチャは分割・欠落するため地図からは拾わない)
 
     // ホバーで強調+クリックで選択(サイドパネルに詳細表示)
     let hoveredId: number | string | undefined
@@ -485,8 +471,18 @@ export function MapView() {
       map.getCanvas().style.cursor = ''
     })
     map.on('click', fillLayers, (e) => {
+      const store = useAppStore.getState()
+      // 測定・島の設置中はEEZの選択に反応しない
+      if (store.measuring || store.placing) return
       const f = e.features?.[0]
-      if (f) setSelected(f.properties as unknown as EezProperties)
+      if (!f) return
+      const p = f.properties as unknown as EezProperties
+      setSelected(p)
+      // その国のEEZをクリックしたら、面積表示の主役をその国に切り替える。
+      // 係争中・共同管理の海域は「どの国のもの」でもないので切り替えない
+      if (p.pol_type === '200NM' && COUNTRY_COLORS[p.sovereign1]) {
+        store.setFocusCountry(p.sovereign1)
+      }
     })
     map.on('click', (e) => {
       const store = useAppStore.getState()
@@ -534,7 +530,7 @@ export function MapView() {
       canvas.removeEventListener('wheel', onWheel)
       map.remove()
     }
-  }, [setSelected, setRealAreas])
+  }, [setSelected])
 
   // 島マーカーの生成・同期(baseline島+サンドボックス島)
   useEffect(() => {

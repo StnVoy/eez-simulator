@@ -22,6 +22,7 @@ import type {
   IslandDef,
   PointsByCountry,
 } from '../engine/types'
+import { loadRealAreas } from '../lib/realAreas'
 import { CONTRIB_GRID, INFLUENCE_RADIUS_KM, SIM_GRID } from '../lib/simConfig'
 import { islandDefs, useAppStore } from '../store/useAppStore'
 
@@ -64,9 +65,12 @@ export function consumeDirty(): DirtyRect | null {
   return d
 }
 
-/** アプリ起動時に基線データを読み込む */
+/** アプリ起動時に基線データと実データの面積を読み込む */
 export async function initBaseline(): Promise<void> {
   const store = useAppStore.getState()
+  // 実データの面積は地図の描画とは独立に集計する(タイルの読み込み状況に
+  // 依存させない。詳細は lib/realAreas.ts)
+  void loadRealAreas().then((a) => useAppStore.getState().setRealAreas(a))
   if (store.baseline) return
   store.setBaseline(await loadBaseline())
 }
