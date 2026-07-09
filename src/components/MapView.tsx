@@ -33,6 +33,7 @@ import {
 } from '../sim/controller'
 import { LOCKED_ISLAND_IDS } from '../data/islandInfo'
 import { OKINAWA_TROUGH_POINTS } from '../data/okinawaTrough'
+import { Legend } from './Legend'
 
 const BASE = import.meta.env.BASE_URL
 // 開発時はデータ再生成後の古いキャッシュ描画を避けるためURLを毎読み込みで変える
@@ -421,6 +422,8 @@ export function MapView() {
   const showTrough = useAppStore((s) => s.showTrough)
   const selectedIslandId = useAppStore((s) => s.selectedIslandId)
   const measurePtsRef = useRef<[number, number][]>([])
+  /** 地図上の凡例を開いているか(サイドパネルの凡例とは独立) */
+  const [legendOpen, setLegendOpen] = useState(false)
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -979,6 +982,35 @@ export function MapView() {
           </button>
         </div>
       )}
+
+      {/* 地図上の凡例。サイドパネルを開かなくても色が引けるようにする */}
+      <div className="map-legend-control">
+        <button
+          className={`map-legend-toggle${legendOpen ? ' active' : ''}`}
+          aria-expanded={legendOpen}
+          aria-label={legendOpen ? '凡例を閉じる' : '凡例を開く'}
+          title="凡例"
+          onClick={() => setLegendOpen((v) => !v)}
+        >
+          <span className="map-legend-icon" aria-hidden="true">
+            <i style={{ background: COUNTRY_COLORS.Japan }} />
+            <i style={{ background: COUNTRY_COLORS.China }} />
+            <i style={{ background: COUNTRY_COLORS['South Korea'] }} />
+            <i style={{ background: DISPUTED_COLOR }} />
+          </span>
+          凡例
+        </button>
+        {legendOpen && (
+          <div className="map-legend-panel" role="group" aria-label="凡例">
+            <Legend />
+            <p className="map-legend-note">
+              {mode === 'real'
+                ? '海域をクリックすると、その国が面積表示の主役になります。'
+                : '灰色の斜線は係争中。どの国の面積にも算入していません。'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

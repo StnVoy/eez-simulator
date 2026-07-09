@@ -13,6 +13,7 @@ import {
   LOCKED_ISLAND_IDS,
   SCENARIOS,
 } from '../data/islandInfo'
+import { Legend } from './Legend'
 import { WorldRanking } from './WorldRanking'
 import { WORLD_EEZ } from '../data/worldEez'
 import { DISPUTED_COUNTRY } from '../engine/types'
@@ -852,21 +853,7 @@ export function SidePanel() {
       </Section>
 
       <Section title="凡例">
-        <ul className="legend">
-          {Object.entries(COUNTRY_COLORS).map(([key, color]) => (
-            <li key={key}>
-              <span className="swatch" style={{ backgroundColor: color }} />
-              {COUNTRY_NAMES_JA[key] ?? key}
-            </li>
-          ))}
-          <li>
-            <span
-              className="swatch swatch-disputed"
-              style={{ backgroundColor: DISPUTED_COLOR }}
-            />
-            係争中・共同管理水域
-          </li>
-        </ul>
+        <Legend />
         <p className="area-footnote">
           {mode === 'real'
             ? '海域をクリックすると詳細を表示します。'
