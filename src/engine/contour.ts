@@ -63,49 +63,17 @@ function simplify(pts: [number, number][], eps: number): [number, number][] {
   return [...left.slice(0, -1), ...right]
 }
 
-/**
- * codes のうち値が code のセルが作る領域の輪郭リング(閉じたLonLatの配列)を返す。
- * 穴(領域の内側の空白)も1つのリングとして返る。呼び出し側でeven-odd扱いにするか、
- * このアプリのように穴が生じない前提で使う。
- */
-export function traceRegionRings(
-  codes: Uint8Array,
+/** 角(corner)のキー -> そこから出る辺の終点キー(斜めに接すると複数になる) */
+type EdgeMap = Map<number, number[]>
+
+/** 辺の集合を閉ループにつなぎ、簡略化して経緯度に直す */
+function linkRings(
+  out: EdgeMap,
   grid: GridSpec,
-  code: number,
+  cornerStride: number,
 ): LonLat[][] {
-  if (code <= 0) return []
   const { width, height, bbox } = grid
   const [west, south, east, north] = bbox
-  const cornerStride = width + 1
-
-  const inside = (c: number, r: number): boolean =>
-    c >= 0 && r >= 0 && c < width && r < height && codes[r * width + c] === code
-
-  // 角のキー -> そこから出る辺の終点キー(複数可: 斜めに接する場合)
-  const out = new Map<number, number[]>()
-  const key = (c: number, r: number): number => r * cornerStride + c
-  const add = (c0: number, r0: number, c1: number, r1: number): void => {
-    const k = key(c0, r0)
-    const arr = out.get(k)
-    if (arr) arr.push(key(c1, r1))
-    else out.set(k, [key(c1, r1)])
-  }
-
-  let any = false
-  for (let r = 0; r < height; r++) {
-    const row = r * width
-    for (let c = 0; c < width; c++) {
-      if (codes[row + c] !== code) continue
-      any = true
-      // 領域を左に見る向きで、外側と接する辺だけを積む
-      if (!inside(c, r - 1)) add(c, r, c + 1, r)
-      if (!inside(c + 1, r)) add(c + 1, r, c + 1, r + 1)
-      if (!inside(c, r + 1)) add(c + 1, r + 1, c, r + 1)
-      if (!inside(c - 1, r)) add(c, r + 1, c, r)
-    }
-  }
-  if (!any) return []
-
   const dLon = (east - west) / width
   const yTop = mercY(north)
   const dy = (yTop - mercY(south)) / height
@@ -137,4 +105,95 @@ export function traceRegionRings(
     }
   }
   return rings
+}
+
+/**
+ * 全ての国コードの輪郭リングを1回の走査で取り出す。
+ * 国ごとに traceRegionRings を呼ぶと走査が国の数だけ増える(3.35Mセル×24)。
+ */
+export function traceAllRegions(
+  codes: Uint8Array,
+  grid: GridSpec,
+): Map<number, LonLat[][]> {
+  const { width, height } = grid
+  const cornerStride = width + 1
+  const key = (c: number, r: number): number => r * cornerStride + c
+
+  const perCode = new Map<number, EdgeMap>()
+  const add = (
+    code: number,
+    c0: number,
+    r0: number,
+    c1: number,
+    r1: number,
+  ): void => {
+    let out = perCode.get(code)
+    if (!out) perCode.set(code, (out = new Map()))
+    const k = key(c0, r0)
+    const arr = out.get(k)
+    if (arr) arr.push(key(c1, r1))
+    else out.set(k, [key(c1, r1)])
+  }
+
+  for (let r = 0; r < height; r++) {
+    const row = r * width
+    for (let c = 0; c < width; c++) {
+      const code = codes[row + c]
+      if (code === 0) continue
+      // 領域を左に見る向きで、別コード(や外側)と接する辺だけを積む
+      if (r === 0 || codes[row - width + c] !== code) add(code, c, r, c + 1, r)
+      if (c === width - 1 || codes[row + c + 1] !== code)
+        add(code, c + 1, r, c + 1, r + 1)
+      if (r === height - 1 || codes[row + width + c] !== code)
+        add(code, c + 1, r + 1, c, r + 1)
+      if (c === 0 || codes[row + c - 1] !== code) add(code, c, r + 1, c, r)
+    }
+  }
+
+  const result = new Map<number, LonLat[][]>()
+  for (const [code, out] of perCode) {
+    const rings = linkRings(out, grid, cornerStride)
+    if (rings.length > 0) result.set(code, rings)
+  }
+  return result
+}
+
+/**
+ * codes のうち値が code のセルが作る領域の輪郭リング(閉じたLonLatの配列)を返す。
+ * 穴(領域の内側の空白)も1つのリングとして返る。呼び出し側でeven-odd扱いにするか、
+ * このアプリのように穴が生じない前提で使う。
+ */
+export function traceRegionRings(
+  codes: Uint8Array,
+  grid: GridSpec,
+  code: number,
+): LonLat[][] {
+  if (code <= 0) return []
+  const { width, height } = grid
+  const cornerStride = width + 1
+
+  const inside = (c: number, r: number): boolean =>
+    c >= 0 && r >= 0 && c < width && r < height && codes[r * width + c] === code
+
+  const out: EdgeMap = new Map()
+  const key = (c: number, r: number): number => r * cornerStride + c
+  const add = (c0: number, r0: number, c1: number, r1: number): void => {
+    const k = key(c0, r0)
+    const arr = out.get(k)
+    if (arr) arr.push(key(c1, r1))
+    else out.set(k, [key(c1, r1)])
+  }
+
+  for (let r = 0; r < height; r++) {
+    const row = r * width
+    for (let c = 0; c < width; c++) {
+      if (codes[row + c] !== code) continue
+      if (!inside(c, r - 1)) add(c, r, c + 1, r)
+      if (!inside(c + 1, r)) add(c + 1, r, c + 1, r + 1)
+      if (!inside(c, r + 1)) add(c + 1, r + 1, c, r + 1)
+      if (!inside(c - 1, r)) add(c, r + 1, c, r)
+    }
+  }
+  if (out.size === 0) return []
+  return linkRings(out, grid, cornerStride)
 }

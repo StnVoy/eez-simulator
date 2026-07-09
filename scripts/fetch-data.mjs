@@ -242,6 +242,19 @@ const DRAGGABLE_ISLANDS = [
     bbox: [140.8, 24.0, 143.5, 27.8], // 小笠原(父島・母島)＋硫黄列島
   },
   {
+    id: 'hachijojima',
+    nameJa: '八丈島',
+    owner: 'Japan',
+    from: 'country:Japan',
+    bbox: [139.7, 33.02, 139.9, 33.18],
+  },
+  {
+    id: 'okidaitojima',
+    nameJa: '沖大東島',
+    owner: 'Japan',
+    manual: [[131.19, 24.4667]], // NE 10mに存在しない(面積約1.15km²)
+  },
+  {
     // 択捉島は北方領土グループから抽出。帰属は北方領土の切替と連動させる
     id: 'etorofu',
     nameJa: '択捉島',

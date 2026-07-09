@@ -15,12 +15,13 @@ import {
 } from '../lib/config'
 import { islandDefs, useAppStore } from '../store/useAppStore'
 import { DISPUTED_COUNTRY, type EezResult } from '../engine/types'
-import { traceRegionRings } from '../engine/contour'
+import { traceAllRegions } from '../engine/contour'
 import {
   NM12_KM,
   NM200_KM,
   geodesicCircle,
   haversineKm,
+  mercY,
 } from '../engine/geo'
 import {
   addIslandAt,
@@ -102,6 +103,14 @@ const lineColorExpr = [
   DISPUTED_COLOR,
 ] as unknown as ExpressionSpecification
 
+/** シミュレーションの輪郭線の色(featureの country プロパティで引く) */
+const simLineColorExpr = [
+  'match',
+  ['get', 'country'],
+  ...Object.entries(COUNTRY_COLORS).flat(),
+  DISPUTED_COLOR,
+] as unknown as ExpressionSpecification
+
 /** タイルサーバー非依存の自前スタイル(海=背景色、陸=Natural Earth) */
 const mapStyle: StyleSpecification = {
   version: 8,
@@ -122,6 +131,8 @@ const mapStyle: StyleSpecification = {
     trough: { type: 'geojson', data: TROUGH_FC },
     // シミュレーション時の係争中海域(輪郭をベクタ化して斜線を描く)
     'sim-disputed': { type: 'geojson', data: EMPTY_FC },
+    // シミュレーション時の各国EEZの輪郭線
+    'sim-outline': { type: 'geojson', data: EMPTY_FC },
   },
   layers: [
     { id: 'ocean', type: 'background', paint: { 'background-color': '#c6dcec' } },
@@ -324,6 +335,27 @@ interface SimOverlay {
 /** 描き直す矩形(グリッドの行・列インデックス) */
 type DirtyRect = NonNullable<EezResult['dirty']>
 
+/**
+ * シミュレーション結果の、その経緯度のセルの帰属国。
+ * 実データ表示ではEEZのベクタフィーチャをクリック判定できるが、
+ * シミュレーションではオーバーレイがラスタなので、グリッドを直接引く。
+ */
+function countryAtLngLat(
+  result: EezResult,
+  lon: number,
+  lat: number,
+): string | null {
+  const { width, height, bbox } = result.grid
+  const [west, south, east, north] = bbox
+  if (lon < west || lon > east || lat < south || lat > north) return null
+  const c = Math.floor(((lon - west) / (east - west)) * width)
+  const yTop = mercY(north)
+  const r = Math.floor(((yTop - mercY(lat)) / (yTop - mercY(south))) * height)
+  if (c < 0 || r < 0 || c >= width || r >= height) return null
+  const code = result.codes[r * width + c]
+  return code === 0 ? null : (result.countries[code - 1] ?? null)
+}
+
 function paintSimOverlay(
   overlay: SimOverlay,
   result: EezResult,
@@ -470,6 +502,21 @@ export function MapView() {
       )
       map.addLayer(
         {
+          // シミュレーションの各国EEZの輪郭線。実データのeez-lineと同じ見え方
+          id: 'sim-outline',
+          type: 'line',
+          source: 'sim-outline',
+          layout: { visibility: 'none' },
+          paint: {
+            'line-color': simLineColorExpr,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3.5, 0.35, 6, 1.2],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 3.5, 0.2, 6, 0.8],
+          },
+        },
+        'land-fill',
+      )
+      map.addLayer(
+        {
           id: 'sim-disputed-line',
           type: 'line',
           source: 'sim-disputed',
@@ -551,6 +598,15 @@ export function MapView() {
         const owner = store.placing
         store.setPlacing(null)
         void addIslandAt(e.lngLat.lng, e.lngLat.lat, owner)
+        return
+      }
+      // シミュレーション中は実データのベクタが隠れているので、
+      // クリック判定はレイヤーではなく計算結果のグリッドから直接引く
+      if (store.mode === 'sim' && store.simResult) {
+        const country = countryAtLngLat(store.simResult, e.lngLat.lng, e.lngLat.lat)
+        setSelected(null)
+        // 係争中の海域はどの国のものでもないので、主役は切り替えない
+        if (country && COUNTRY_COLORS[country]) store.setFocusCountry(country)
         return
       }
       const hits = map.queryRenderedFeatures(e.point, { layers: fillLayers })
@@ -761,40 +817,64 @@ export function MapView() {
   }, [islands, mapObj, baseline, hintSeen])
 
   /**
-   * 係争中の海域をベクタ化して斜線レイヤーへ流す。
-   * 輪郭追跡はグリッド全体の走査(数十ms)なので、ドラッグ中は走らせない。
-   * 係争地の島は動かせないので、ドラッグ中に形が変わるのは隣接する島
-   * (対馬↔竹島など)を動かしたときだけで、離した時点で追いつく。
+   * シミュレーション結果をベクタ化して、各国EEZの輪郭線と係争中の斜線を描く。
+   *
+   * オーバーレイはラスタなので、そのままでは輪郭線が引けず、斜線もズームで太る。
+   * 輪郭を追跡してMapLibreのline/fill-patternに任せると、線の太さも縞の間隔も
+   * 画面座標で一定になり、実データ表示と同じ見え方になる。
+   *
+   * 追跡はグリッド全体の走査(数十ms)なのでドラッグ中は走らせない。
+   * 形が変わるのに追随できないため、ドラッグ中は輪郭線を隠す
+   * (係争中の斜線は動く島の影響を受けにくいので残す)。
    */
   useEffect(() => {
     const map = mapObj
     if (!map || !styleReady) return
-    const src = map.getSource('sim-disputed') as maplibregl.GeoJSONSource | undefined
-    if (!src) return
-    const show = (v: boolean) => {
-      for (const id of ['sim-disputed-hatch', 'sim-disputed-line']) {
-        if (map.getLayer(id))
-          map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none')
-      }
+    const disputedSrc = map.getSource('sim-disputed') as maplibregl.GeoJSONSource | undefined
+    const outlineSrc = map.getSource('sim-outline') as maplibregl.GeoJSONSource | undefined
+    if (!disputedSrc || !outlineSrc) return
+    const show = (id: string, v: boolean) => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none')
     }
     if (mode !== 'sim' || !simResult) {
-      show(false)
+      for (const id of ['sim-disputed-hatch', 'sim-disputed-line', 'sim-outline']) show(id, false)
       return
     }
-    // ドラッグ中は輪郭を引き直さない(消しもしない。前の形のまま残す)
-    if (dragging) return
-    const code = simResult.countries.indexOf(DISPUTED_COUNTRY) + 1
-    const rings = code > 0 ? traceRegionRings(simResult.codes, simResult.grid, code) : []
-    src.setData({
+    if (dragging) {
+      // 追跡を止めるので、ずれる輪郭線だけ隠す
+      show('sim-outline', false)
+      return
+    }
+
+    const regions = traceAllRegions(simResult.codes, simResult.grid)
+    const disputedCode = simResult.countries.indexOf(DISPUTED_COUNTRY) + 1
+
+    const outlines: Feature[] = []
+    for (const [code, rings] of regions) {
+      const country = simResult.countries[code - 1]
+      for (const ring of rings) {
+        outlines.push({
+          type: 'Feature',
+          properties: { country },
+          geometry: { type: 'LineString', coordinates: ring },
+        })
+      }
+    }
+    outlineSrc.setData({ type: 'FeatureCollection', features: outlines })
+    show('sim-outline', outlines.length > 0)
+
+    // 穴は生じない前提(陸地は上のレイヤーが覆う)。リングごとに独立したPolygon
+    const disputedRings = regions.get(disputedCode) ?? []
+    disputedSrc.setData({
       type: 'FeatureCollection',
-      // 穴は生じない前提(陸地は上のレイヤーが覆う)。リングごとに独立したPolygon
-      features: rings.map((ring) => ({
+      features: disputedRings.map((ring) => ({
         type: 'Feature',
         properties: {},
         geometry: { type: 'Polygon', coordinates: [ring] },
       })),
     })
-    show(rings.length > 0)
+    show('sim-disputed-hatch', disputedRings.length > 0)
+    show('sim-disputed-line', disputedRings.length > 0)
   }, [mapObj, styleReady, mode, simResult, dragging])
 
   // シミュレーション結果のオーバーレイ表示と実データレイヤーの切替

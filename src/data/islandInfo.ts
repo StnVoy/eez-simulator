@@ -63,6 +63,16 @@ export const ISLAND_INFO: Record<string, IslandInfo> = {
     trivia:
       '本州から約1,000km南に連なる島々。一度も大陸と地続きになったことがなく「東洋のガラパゴス」として世界自然遺産に登録。硫黄島まで含む列島が、太平洋へEEZを橋のように延ばしている。',
   },
+  hachijojima: {
+    landAreaText: '約69km²',
+    trivia:
+      '東京都・伊豆諸島南部の有人島。本州から約290km南にあり、東京から飛行機で約55分。本州と小笠原の間をつなぐ位置にあって、伊豆・小笠原諸島が連なることで日本のEEZが太平洋へ途切れずに延びている。',
+  },
+  okidaitojima: {
+    landAreaText: '約1.15km²',
+    trivia:
+      '沖縄本島の東約400kmに浮かぶ無人島。ラサ島とも呼ばれ、かつてリン鉱石が採掘された。現在は民有地で、米軍の射爆撃場として使われており立ち入れない。人が住まない1km²の島が、沖縄の南東に広大なEEZを支えている。',
+  },
   spratly: {
     landAreaText: '個々は数百m²〜数km²の岩礁・サンゴ礁の集まり',
     trivia:
@@ -101,7 +111,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'no-okinotori',
     label: 'もしも沖ノ鳥島がなかったら',
-    description: '数m²の岩が支える約40万km²が消える',
+    description: '数m²の岩が支える約41万km²が消える',
     disable: ['okinotorishima'],
   },
   {
