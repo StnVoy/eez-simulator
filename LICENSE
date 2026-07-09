@@ -1,0 +1,25 @@
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+(CC BY-NC-SA 4.0)
+
+Copyright (c) 2026 StnVoy
+
+このリポジトリのソースコードおよび同梱データは CC BY-NC-SA 4.0 の条件で
+利用できます。全文と法的条文は以下を参照してください。
+
+  https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ja
+  https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.ja
+
+要約:
+  - 表示   出典を明記してください。
+  - 非営利 商用目的では利用できません。
+  - 継承   改変物は同じライセンスで公開してください。
+
+このライセンスを選んでいるのは、同梱する public/data/eez.geojson および
+public/data/baseline-points.json が Marine Regions (VLIZ) World EEZ v12 に
+由来し、それ自体が CC BY-NC-SA 4.0 で提供されているためです。
+
+同梱データの出典:
+  - Marine Regions (VLIZ), World EEZ v12 — CC BY-NC-SA 4.0
+    https://www.marineregions.org/
+  - Natural Earth 1:10m — public domain
+    https://www.naturalearthdata.com/

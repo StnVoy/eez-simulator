@@ -1,0 +1,845 @@
+:root {
+  font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans JP', system-ui,
+    sans-serif;
+  font-size: 14px;
+  color: #24292f;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #d8dde3;
+  background: #fdfdfd;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.mode-badge {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #e7f0fb;
+  color: #2b6cd4;
+  border: 1px solid #b9d2f2;
+}
+
+.mode-badge-sim {
+  background: #fdf1e3;
+  color: #b25d0e;
+  border-color: #eecb9c;
+}
+
+.reset-button {
+  margin-left: auto;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #57606a;
+  background: #ffffff;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.reset-button:hover {
+  background: #f0f2f4;
+}
+
+.delta-row {
+  margin: 6px 0 0;
+}
+
+.delta-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.delta-up {
+  color: #1a7f37;
+  background: #e2f5e8;
+}
+
+.delta-down {
+  color: #c93c37;
+  background: #fbe9e7;
+}
+
+.panel-card-dispute {
+  border-color: #eecb9c;
+  background: #fffaf3;
+}
+
+.dispute-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dispute-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dispute-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dispute-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.dispute-toggle button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 4px;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+  color: #57606a;
+  cursor: pointer;
+}
+
+.dispute-toggle button.active {
+  background: #e7f0fb;
+  border-color: #2b6cd4;
+  color: #1c4fa0;
+  font-weight: 600;
+}
+
+.dispute-toggle button:disabled {
+  cursor: progress;
+}
+
+/* 世界EEZランキング(横棒) */
+.rank-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.rank-name {
+  font-size: 12px;
+  color: #24292f;
+}
+
+.rank-row-jp .rank-name {
+  font-weight: 700;
+  color: #1c4fa0;
+}
+
+.rank-value {
+  font-size: 11px;
+  color: #57606a;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-ratio {
+  margin-left: 6px;
+  color: #8b949e;
+}
+
+.rank-row-jp .rank-ratio {
+  color: #b25d0e;
+  font-weight: 600;
+}
+
+.rank-bar-track {
+  display: block;
+  height: 8px;
+  background: #eef1f4;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rank-bar {
+  display: block;
+  height: 100%;
+  background: #9db8d8;
+  border-radius: 4px;
+}
+
+.rank-row-jp .rank-bar {
+  background: #2b6cd4;
+}
+
+.country-delta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.country-delta-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-delta-name {
+  flex: 1;
+}
+
+.island-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.island-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.island-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.island-moved-tag {
+  font-size: 11px;
+  color: #b25d0e;
+  background: #fdf1e3;
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
+.island-owner-tag {
+  font-size: 11px;
+  color: #57606a;
+  background: #eef1f4;
+  border: 1px solid #d8dde3;
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
+.island-name-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.island-name-link:hover {
+  color: #1c4fa0;
+}
+
+/* 情報カード: 帰属セレクタ */
+.island-owner {
+  margin: 4px 0 8px;
+  font-size: 13px;
+}
+
+.island-owner label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #57606a;
+}
+
+.island-owner select {
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* 情報カード: 第121条トグル */
+.art121 {
+  margin: 6px 0 8px;
+}
+
+.art121-label {
+  font-size: 12px;
+  color: #57606a;
+}
+
+.art121-toggle {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.art121-toggle button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 4px;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+  color: #57606a;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.art121-toggle button.active {
+  background: #e7f0fb;
+  border-color: #2b6cd4;
+  color: #1c4fa0;
+  font-weight: 600;
+}
+
+.action-button-danger {
+  background: #fff;
+  color: #c93c37;
+  border: 1px solid #e4b4b1;
+}
+
+.action-button-danger:hover:not(:disabled) {
+  background: #fbe9e7;
+}
+
+.place-country {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #57606a;
+  margin: 8px 0 4px;
+}
+
+.place-country select {
+  flex: 1;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.action-button-active {
+  background: #b25d0e;
+}
+
+.action-button-subtle {
+  background: #eef1f4;
+  color: #57606a;
+  border: 1px solid #d8dde3;
+}
+
+.action-button-subtle:hover:not(:disabled) {
+  background: #e2e6ea;
+}
+
+.island-delete {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #e4b4b1;
+  border-radius: 50%;
+  background: #fff;
+  color: #c93c37;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.island-delete:hover:not(:disabled) {
+  background: #fbe9e7;
+}
+
+.sim-hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #7a3d05;
+  background: #fffaf3;
+  border: 1px solid #eecb9c;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.measure-result {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b25d0e;
+  font-variant-numeric: tabular-nums;
+}
+
+.action-button-active:hover:not(:disabled) {
+  background: #92490a;
+}
+
+/* 地図上のドラッグ可能な島マーカー */
+.island-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: grab;
+}
+
+.island-marker:active {
+  cursor: grabbing;
+}
+
+.island-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #1c4fa0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.island-label {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1c355c;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.island-marker-custom .island-dot {
+  border-color: #b25d0e;
+  background: #fdf1e3;
+}
+
+/* 領土問題マーカー(北方領土・竹島・尖閣) */
+.dispute-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dispute-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #b25d0e;
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.dispute-label {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a3d05;
+  background: rgba(255, 250, 243, 0.92);
+  border: 1px solid #eecb9c;
+  padding: 0 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.island-marker-off .island-dot {
+  border-color: #9aa0a6;
+  background: #e8eaed;
+}
+
+.island-marker-off .island-label {
+  color: #80868b;
+  text-decoration: line-through;
+}
+
+/* 初回操作を促すパルス */
+.island-marker-pulse .island-dot {
+  animation: island-pulse 2s ease-out infinite;
+}
+
+@keyframes island-pulse {
+  0% {
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.35),
+      0 0 0 0 rgba(28, 79, 160, 0.55);
+  }
+  70% {
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.35),
+      0 0 0 12px rgba(28, 79, 160, 0);
+  }
+  100% {
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.35),
+      0 0 0 0 rgba(28, 79, 160, 0);
+  }
+}
+
+/* 地図の上のヒントバナー */
+.map-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.map-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(92%, 520px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #b9d2f2;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 5;
+}
+
+.map-hint-close {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: #57606a;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 島情報カード */
+.panel-card-island {
+  border-color: #b9d2f2;
+}
+
+.island-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.island-card-header h2 {
+  font-size: 15px;
+  color: #1c355c;
+  margin: 0;
+}
+
+.close-button {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: #57606a;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.island-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.island-facts dt {
+  color: #57606a;
+}
+
+.island-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* もしもシナリオ */
+.scenario-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scenario-button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: #f6f8fa;
+  border: 1px solid #d8dde3;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scenario-button:hover:not(:disabled) {
+  background: #eef2f6;
+  border-color: #b9d2f2;
+}
+
+.scenario-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.scenario-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #24292f;
+}
+
+.scenario-desc {
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.action-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #2b6cd4;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.action-button:hover:not(:disabled) {
+  background: #1c4fa0;
+}
+
+.action-button:disabled {
+  background: #9ab8e0;
+  cursor: progress;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.map-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.side-panel {
+  width: 280px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-left: 1px solid #d8dde3;
+  background: #fafbfc;
+}
+
+.panel-card {
+  background: #ffffff;
+  border: 1px solid #e1e6eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.panel-card h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #57606a;
+  font-weight: 600;
+}
+
+.panel-card-primary {
+  border-color: #b9d2f2;
+  background: #f4f8fd;
+}
+
+.focus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.focus-select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid #b9d2f2;
+  border-radius: 6px;
+  background: #fff;
+  color: #1c4fa0;
+  max-width: 45%;
+}
+
+.area-value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1c4fa0;
+  font-variant-numeric: tabular-nums;
+}
+
+.area-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #57606a;
+}
+
+.area-footnote {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.selected-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.selected-area {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+  font-size: 12px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.swatch-disputed {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.7) 0,
+    rgba(255, 255, 255, 0.7) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 6px 16px;
+  border-top: 1px solid #d8dde3;
+  font-size: 11px;
+  color: #57606a;
+  background: #fdfdfd;
+}
+
+@media (max-width: 800px) {
+  .app-main {
+    flex-direction: column;
+  }
+  .side-panel {
+    width: 100%;
+    max-height: 45%;
+    border-left: none;
+    border-top: 1px solid #d8dde3;
+  }
+  .app-header {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 6px 10px;
+  }
+  .app-header h1 {
+    font-size: 15px;
+  }
+  .mode-badge {
+    font-size: 11px;
+  }
+  .area-value {
+    font-size: 20px;
+  }
+  .map-hint {
+    font-size: 12px;
+    top: 8px;
+  }
+  .app-footer {
+    font-size: 10px;
+  }
+}
