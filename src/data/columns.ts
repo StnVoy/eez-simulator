@@ -102,7 +102,103 @@ const CHN_CLCS_ECS: Source = {
   url: 'https://www.un.org/depts/los/clcs_new/submissions_files/submission_chn_63_2012.htm',
 }
 
+const JCG_TERMS: Source = {
+  publisher: '海上保安庁 海洋情報部',
+  title: '領海等に関する用語',
+  url: 'https://www1.kaiho.mlit.go.jp/ryokai/zyoho/msk_idx.html',
+}
+
+const JCG_DIAGRAM: Source = {
+  publisher: '海上保安庁 海洋情報部',
+  title: '日本の領海等概念図',
+  url: 'https://www1.kaiho.mlit.go.jp/ryokai/gainenzu.html',
+}
+
+const JCG_FAQ: Source = {
+  publisher: '海上保安庁',
+  title: '排他的経済水域(EEZ)と領海及び公海の違いを教えて下さい',
+  url: 'https://www.kaiho.mlit.go.jp/questions/situgi/faq16.html',
+}
+
 // ---- コラム本体 ----
+
+const WHAT_IS_EEZ: Column = {
+  id: 'what-is-eez',
+  title: 'そもそもEEZとは何か',
+  lead:
+    'EEZ(排他的経済水域)は「海の領土」ではありません。資源については沿岸国のもの、通ることについては誰のものでもない ―― そういう二重の性格を持った海域です。',
+  sections: [
+    {
+      heading: '海は、岸からの距離で3つに分かれる',
+      paragraphs: [
+        'すべては「基線」から測ります。基線とはおおむね干潮時の海岸線のことで、島があればその島の海岸線も基線になります。このアプリで島を動かすと海が塗り替わるのは、基線が動くからです。',
+        '基線から12海里(約22km)までが領海。沿岸国の主権が及び、上空にも海底にも及びます。ただし外国船には無害通航権があります。',
+        '基線から24海里(約44km)までが接続水域。密輸・密入国・伝染病といった通関・出入国・衛生の法令違反を、沿岸国が防止・処罰できる水域です。',
+        'そして基線から200海里(約370km)までがEEZです。日本の公的な説明では、EEZは「領海を除く」海域とされています。',
+      ],
+      quote: {
+        text:
+          'The exclusive economic zone shall not extend beyond 200 nautical miles from the baselines from which the breadth of the territorial sea is measured.',
+        cite: '国連海洋法条約 第57条(排他的経済水域の幅)',
+      },
+    },
+    {
+      heading: '「主権」ではなく「主権的権利」',
+      paragraphs: [
+        'ここが一番大事なところです。領海に及ぶのは主権(sovereignty)ですが、EEZで沿岸国が持つのは主権的権利(sovereign rights)であって、対象は資源とその周辺に限られます。',
+        '条約56条が挙げるのは、(a)海底の上部水域・海底・その下の天然資源(生物も非生物も)を探査・開発・保存・管理する主権的権利、および水・海流・風からのエネルギー生産のような経済的な活動。(b)人工島や施設の設置、海洋の科学的調査、海洋環境の保護についての管轄権。それだけです。',
+        'EEZは領土ではないので、そこに国境はありません。地図の色分けは「この海の資源は誰のものか」を示しているのであって、「ここから先は入れない」を示しているのではありません。',
+      ],
+      quote: {
+        text:
+          'In the exclusive economic zone, the coastal State has: (a) sovereign rights for the purpose of exploring and exploiting, conserving and managing the natural resources, whether living or non-living, of the waters superjacent to the seabed and of the seabed and its subsoil…',
+        cite: '国連海洋法条約 第56条1項',
+      },
+    },
+    {
+      heading: '他の国も、そこを自由に通れる',
+      paragraphs: [
+        '内陸国も含めたすべての国が、EEZで航行の自由・上空飛行の自由・海底電線と海底パイプラインを敷設する自由を持ちます。外国の軍艦や軍用機がEEZを通っても、それだけでは条約違反にはなりません。',
+        'ニュースで「日本のEEZ内に着弾」と聞くと領海侵犯のように感じますが、法的な意味はまったく違います。EEZについて沿岸国が持っているのは、あくまで資源と一部の管轄権です。',
+      ],
+      quote: {
+        text:
+          'In the exclusive economic zone, all States, whether coastal or land-locked, enjoy … the freedoms referred to in article 87 of navigation and overflight and of the laying of submarine cables and pipelines…',
+        cite: '国連海洋法条約 第58条1項',
+      },
+    },
+    {
+      heading: '獲りきれない魚は、他の国に分けなければならない',
+      paragraphs: [
+        'EEZの資源は「独占できる」というより「管理する責任を負う」に近い制度です。沿岸国は漁獲可能量を定め、自国で獲りきる能力がなければ、その余剰分を他国に利用させなければならない ―― 条約はそこまで書いています。',
+      ],
+      quote: {
+        text:
+          'Where the coastal State does not have the capacity to harvest the entire allowable catch, it shall … give other States access to the surplus of the allowable catch…',
+        cite: '国連海洋法条約 第62条2項',
+      },
+    },
+    {
+      heading: '海底は、また別の制度',
+      paragraphs: [
+        '海底とその下(大陸棚)については、EEZとは別に条約の第6部が定めています。沿岸国は大陸棚の天然資源を探査・開発する主権的権利を持ち、この権利は誰も採らなくても消えません。',
+        '大陸棚は条件を満たせば200海里を超えて延びることがあります。EEZは距離で決まる制度、大陸棚は地形で決まりうる制度 ―― この違いが、東シナ海で日本と中国の主張が噛み合わない理由の一つです(「尖閣諸島 / 釣魚島」のコラムを参照)。',
+      ],
+    },
+    {
+      heading: '「日本のEEZは何km²か」に答えが2つある理由',
+      paragraphs: [
+        '日本の公称値は、EEZ(領海を除く)が約405万km²、領海を含めると約447万km²です。条約55条もEEZを「領海の外側に接続する海域」と定義しているので、EEZに領海を含めないのが本来の数え方です。',
+        'ところがこのアプリが使っている Marine Regions のポリゴンは領海を含んでいます(海岸から8kmの点も内側にあることを点内外判定で確認しました)。だからこのアプリの数字はすべて「領海込み」で、公称値と比べるなら447万km²のほうです。',
+      ],
+    },
+  ],
+  modelNote: [
+    'このアプリは領海(12海里)とEEZ(200海里)を区別せず、基線から200海里以内をひとまとめに塗っています。ツールの「領海(12海里)とEEZ(200海里)の円を表示」を使うと、両者の桁違いのスケール差が見られます。',
+    '描いているのは面積だけです。資源も、航行の自由も、漁業協定も、この地図には描かれていません。EEZの本体はむしろそちらにあります。',
+  ],
+  sources: [UNCLOS, JCG_TERMS, JCG_DIAGRAM, JCG_FAQ],
+}
 
 const METHOD: Column = {
   id: 'method',
@@ -463,6 +559,7 @@ const ABOUT: Column = {
 
 export const COLUMNS: Record<string, Column> = {
   about: ABOUT,
+  'what-is-eez': WHAT_IS_EEZ,
   method: METHOD,
   'northern-territories': NORTHERN_TERRITORIES,
   takeshima: TAKESHIMA,

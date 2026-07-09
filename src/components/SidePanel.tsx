@@ -220,6 +220,35 @@ function IslandCard({ islandId }: { islandId: string }) {
   )
 }
 
+/**
+ * 折りたためるパネルのまとまり。
+ * 全部を開いたまま縦に積むとメニューが長くなりすぎるので、
+ * よく使うもの(島リスト)だけ開いた状態にし、残りは畳んでおく。
+ */
+function Section({
+  title,
+  defaultOpen = false,
+  tone,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  tone?: 'dispute'
+  children: React.ReactNode
+}) {
+  return (
+    <details
+      className={`panel-card panel-section${tone ? ` panel-card-${tone}` : ''}`}
+      open={defaultOpen}
+    >
+      <summary>
+        <h2>{title}</h2>
+      </summary>
+      <div className="panel-section-body">{children}</div>
+    </details>
+  )
+}
+
 /** 解説コラムを開くリンクボタン */
 function ColumnLink({ columnId, label }: { columnId: string; label?: string }) {
   const openColumn = useAppStore((s) => s.openColumn)
@@ -515,7 +544,7 @@ export function SidePanel() {
         )}
         <p className="area-footnote">
           {isSim
-            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島・尖閣は既定で「係争中」とし、どの国の面積にも算入していません。3つとも日本に割り当てると約483万km²(公称値約447万km²の108%)になります。'
+            ? '※ 等距離中間線モデルによる自前計算。北方領土・竹島・尖閣は既定で「係争中」とし、どの国の面積にも算入していません。'
             : focusCountry === 'Japan'
               ? // 公称値との差は「領海の有無」ではなく「係争海域の切り出し」による。
                 // MRのポリゴンは領海を含む(海岸から8kmの点も内側にある)
@@ -524,9 +553,7 @@ export function SidePanel() {
         </p>
         {isSim && focusCountry === 'Japan' && realAreas?.Japan != null && (
           <p className="area-footnote">
-            ※ 実データ(Marine Regions)では {formatArea(realAreas.Japan)}。
-            差の約42.6万km²は計算モデルの違い(小さな島に完全な効果を与える・日韓暫定水域を中間線で割る等)によるもので、
-            係争海域の帰属は変わっていません。3つとも「係争中」のままです。
+            ※ 実データでは {formatArea(realAreas.Japan)}。差の約42.6万km²は計算モデルの違いで、係争海域の帰属は変わっていません(下の「計算方法」に内訳)。
           </p>
         )}
         {partialCoverage && (
@@ -536,7 +563,10 @@ export function SidePanel() {
             {partialCoverage.eezManKm2.toLocaleString('ja-JP')}万km²)。
           </p>
         )}
-        <ColumnLink columnId="method" label="📐 EEZはどう計算しているか" />
+        <div className="column-link-row">
+          <ColumnLink columnId="what-is-eez" label="🌊 EEZとは？" />
+          <ColumnLink columnId="method" label="📐 計算方法" />
+        </div>
       </section>
 
       {mode === 'real' && (
@@ -557,7 +587,7 @@ export function SidePanel() {
             島をドラッグしたり消したりすると、EEZがその場で計算し直されます。沖ノ鳥島を消すと日本のEEZが41万km²消えます ―― 国土面積より広い。
           </p>
           <p className="area-footnote">
-            2つは別のモデルです。実データは各国の交渉結果を反映しており、竹島のような小さな島には完全な200海里の効果を与えていません。自前計算は全ての島に等しく効果を与えるため、係争海域の形も広さも変わります。
+            2つは別のモデルです。実データは各国の交渉結果を反映していますが、自前計算は全ての島に等しく200海里の効果を与えます。係争海域の形も広さも変わります。
           </p>
         </section>
       )}
@@ -591,8 +621,7 @@ export function SidePanel() {
       {selectedDisputeId && <DisputeCard disputeId={selectedDisputeId} />}
 
       {baseline && Object.keys(baseline.disputed).some((id) => baseline.disputed[id].claimants.length >= 2 && baseline.disputed[id].claimants.includes('Japan')) && (
-        <section className="panel-card panel-card-dispute">
-          <h2>日本の領土問題</h2>
+        <Section title="日本の領土問題" tone="dispute">
           <p className="area-note">
             日本と相手国が領有を争う海域です。既定は「係争中」で、どの国の面積にも入りません。「日本」「相手国」を選ぶとEEZがどう変わるか試せます(本アプリは特定の立場を示しません)。
           </p>
@@ -643,11 +672,10 @@ export function SidePanel() {
                 )
               })}
           </ul>
-        </section>
+        </Section>
       )}
 
-      <section className="panel-card">
-        <h2>島リスト</h2>
+      <Section title="島リスト" defaultOpen>
         <ul className="island-list">
           {Object.entries(allIslands).map(([id, isl]) => {
             const st = islands[id]
@@ -704,10 +732,9 @@ export function SidePanel() {
         <p className="area-footnote">
           名前をタップで情報カード。チェックを外すと「その島が無かったら」を計算します(いつでも戻せます)。マーカーはドラッグで移動できます。🔒 は領有権が争われている島で、移動もON/OFFもできません。
         </p>
-      </section>
+      </Section>
 
-      <section className="panel-card">
-        <h2>島を新設(サンドボックス)</h2>
+      <Section title="島を新設(サンドボックス)">
         <p className="area-note">
           国を選んで海の好きな場所に仮想の島を置くと、EEZがどれだけ生まれ、どの国から奪うかを試せます。
         </p>
@@ -734,10 +761,9 @@ export function SidePanel() {
             ? '地図をクリックして設置(取消)'
             : `＋ ${COUNTRY_NAMES_JA[placeCountry] ?? placeCountry}の島を置く`}
         </button>
-      </section>
+      </Section>
 
-      <section className="panel-card">
-        <h2>もしもシナリオ</h2>
+      <Section title="もしもシナリオ" defaultOpen>
         <ul className="scenario-list">
           {SCENARIOS.map((sc) => (
             <li key={sc.id}>
@@ -752,7 +778,7 @@ export function SidePanel() {
             </li>
           ))}
         </ul>
-      </section>
+      </Section>
 
       {isSim && (
         <p className="sim-hint">
@@ -777,8 +803,7 @@ export function SidePanel() {
         </section>
       )}
 
-      <section className="panel-card">
-        <h2>ツール</h2>
+      <Section title="地図ツール">
         <label className="tool-toggle">
           <input
             type="checkbox"
@@ -820,12 +845,13 @@ export function SidePanel() {
               : `${Math.round(measureKm).toLocaleString()} km / ${(measureKm / 1.852).toFixed(0)} 海里(200海里の${((measureKm / 370.4) * 100).toFixed(0)}%)`}
           </p>
         )}
-      </section>
+      </Section>
 
-      <WorldRanking />
+      <Section title="世界のEEZ面積ランキング">
+        <WorldRanking />
+      </Section>
 
-      <section className="panel-card">
-        <h2>凡例</h2>
+      <Section title="凡例">
         <ul className="legend">
           {Object.entries(COUNTRY_COLORS).map(([key, color]) => (
             <li key={key}>
@@ -846,7 +872,13 @@ export function SidePanel() {
             ? '海域をクリックすると詳細を表示します。'
             : 'シミュレーションでは係争海域は等距離モデルで機械的に配分されます。'}
         </p>
-      </section>
+      </Section>
+
+      <Section title="解説を読む" defaultOpen>
+        <ColumnLink columnId="what-is-eez" label="🌊 そもそもEEZとは何か" />
+        <ColumnLink columnId="method" label="📐 EEZはどう計算しているか" />
+        <ColumnLink columnId="about" label="ⓘ このアプリについて・出典" />
+      </Section>
       </div>
     </aside>
   )

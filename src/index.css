@@ -736,6 +736,47 @@ body,
   display: none;
 }
 
+/* 折りたためるセクション */
+.panel-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.panel-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-section > summary::after {
+  content: '';
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #8b949e;
+  border-bottom: 2px solid #8b949e;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.15s ease;
+}
+
+.panel-section[open] > summary::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+.panel-section > summary > h2 {
+  margin: 0;
+}
+
+.panel-section > summary:hover > h2 {
+  color: #1c4fa0;
+}
+
+.panel-section-body {
+  margin-top: 10px;
+}
+
 .panel-card {
   background: #ffffff;
   border: 1px solid #e1e6eb;
@@ -978,6 +1019,17 @@ body,
 /* リセットボタンが右端に寄る前提だったmargin-leftを譲る */
 .header-column-button + .reset-button {
   margin-left: 8px;
+}
+
+/* 面積カードの下に並べる2つの短いリンク */
+.column-link-row {
+  display: flex;
+  gap: 8px;
+}
+
+.column-link-row .column-link {
+  flex: 1;
+  text-align: center;
 }
 
 .column-link {

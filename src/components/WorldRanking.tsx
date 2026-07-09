@@ -10,9 +10,9 @@ export function WorldRanking() {
   const rows = [...WORLD_EEZ].sort((a, b) => b.eezManKm2 - a.eezManKm2)
   const max = rows[0].eezManKm2
 
+  // 見出しとカードの枠は呼び出し側(折りたたみSection)が持つ
   return (
-    <section className="panel-card">
-      <h2>世界のEEZ面積ランキング</h2>
+    <>
       <ul className="rank-list">
         {rows.map((r) => {
           const ratio = r.eezManKm2 / r.landManKm2
@@ -41,6 +41,6 @@ export function WorldRanking() {
       <p className="area-footnote">
         EEZ面積の概算値。国土が小さくても遠方の島々で巨大なEEZを持つ国(日本・イギリス・フランス・キリバス等)ほど「国土の◯倍」が大きくなります。出典: Sea Around Us / Marine Regions ほか。
       </p>
-    </section>
+    </>
   )
 }
