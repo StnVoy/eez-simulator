@@ -564,6 +564,16 @@ body,
   line-height: 1.5;
   z-index: 5;
   padding-right: 26px;
+  /*
+   * バナーの下に隠れた島マーカー(既定の表示範囲では択捉島)を掴めるように、
+   * クリックは地図へ抜けさせる。ボタンだけが受け取る
+   */
+  pointer-events: none;
+}
+
+.map-hint-cta,
+.map-hint-close {
+  pointer-events: auto;
 }
 
 .map-hint > span {
@@ -588,6 +598,76 @@ body,
   cursor: pointer;
   padding: 2px 6px;
   line-height: 1;
+}
+
+/* ---- 島を指す吹き出し(MapLibreのPopupに載せる) ---- */
+
+.map-bubble-popup .maplibregl-popup-content {
+  padding: 10px 12px 11px;
+  border-radius: 10px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+/* 吹き出しの尻尾はcontentと同じ白。既定のままで揃うので色は触らない */
+
+.map-bubble {
+  position: relative;
+  padding-right: 14px;
+  max-width: 236px;
+}
+
+.map-bubble-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #1c355c;
+}
+
+.map-bubble-body {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #40474f;
+}
+
+.map-bubble-cta {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #b25d0e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.map-bubble-cta:hover {
+  background: #92490a;
+}
+
+.map-bubble-close {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1;
+  color: #8b949e;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.map-bubble-close:hover {
+  color: #40474f;
+}
+
+/* 手本の吹き出しは、島のパルスと同じ青で「触れる」ことを示す */
+.map-bubble-coach .maplibregl-popup-content {
+  border-top: 3px solid #2b6cd4;
 }
 
 /* 島情報カード */

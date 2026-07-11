@@ -42,6 +42,13 @@ interface AppState {
   /** 初見ヒントを消したか(操作を始めたら自動でtrue) */
   hintSeen: boolean
   /**
+   * シミュレーションの「島をドラッグしてみよう」の吹き出しを見終えたか。
+   * hintSeenとは別に持つ。実データ表示のヒントを閉じるとhintSeenが立つので、
+   * 共用すると、吹き出しが必要になった瞬間(=シミュレーションに入った時)に
+   * 消えてしまう
+   */
+  coachSeen: boolean
+  /**
    * 一度でもシミュレーションモードに入ったか。
    * このアプリの主役はシミュレーションなので、入るまでは切替を目立たせる
    */
@@ -70,6 +77,7 @@ interface AppState {
   setSelectedIslandId: (id: string | null) => void
   setSelectedDisputeId: (id: string | null) => void
   setHintSeen: () => void
+  setCoachSeen: () => void
   setPlacing: (v: string | null) => void
   setMeasuring: (v: boolean) => void
   setMeasureKm: (v: number | null) => void
@@ -120,6 +128,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedIslandId: null,
   selectedDisputeId: null,
   hintSeen: false,
+  coachSeen: false,
   simVisited: false,
   placing: null,
   measuring: false,
@@ -134,6 +143,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedIslandId: (id) => set({ selectedIslandId: id, selectedDisputeId: null }),
   setSelectedDisputeId: (id) => set({ selectedDisputeId: id, selectedIslandId: null }),
   setHintSeen: () => set({ hintSeen: true }),
+  setCoachSeen: () => set({ coachSeen: true }),
   setPlacing: (v) => set({ placing: v }),
   // 測定モードのON/OFF切替時は前回の測定結果をクリア
   setMeasuring: (v) => set({ measuring: v, measureKm: null }),

@@ -308,6 +308,44 @@ const initialCamera = (() => {
   }
 })()
 
+/** ドラッグの手本として最初に指さす島。このアプリの主題そのもの */
+const COACH_ISLAND_ID = 'okinotorishima'
+
+/**
+ * 地図に重ねる吹き出しの中身。MapLibreのPopupに載せるため、
+ * マーカーと同じくReactの外でDOMを組み立てる。
+ */
+function buildBubble(o: {
+  title: string
+  body: string
+  cta?: { label: string; onClick: () => void }
+  onClose: () => void
+}): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'map-bubble'
+  const title = document.createElement('p')
+  title.className = 'map-bubble-title'
+  title.textContent = o.title
+  const body = document.createElement('p')
+  body.className = 'map-bubble-body'
+  body.textContent = o.body
+  el.append(title, body)
+  if (o.cta) {
+    const cta = document.createElement('button')
+    cta.className = 'map-bubble-cta'
+    cta.textContent = o.cta.label
+    cta.addEventListener('click', o.cta.onClick)
+    el.append(cta)
+  }
+  const close = document.createElement('button')
+  close.className = 'map-bubble-close'
+  close.setAttribute('aria-label', '閉じる')
+  close.textContent = '×'
+  close.addEventListener('click', o.onClose)
+  el.append(close)
+  return el
+}
+
 /** 実データ表示のEEZレイヤー(シミュレーション時に隠す) */
 const REAL_EEZ_LAYERS = [
   'eez-fill',
@@ -416,6 +454,11 @@ export function MapView() {
   const islands = useAppStore((s) => s.islands)
   const hintSeen = useAppStore((s) => s.hintSeen)
   const setHintSeen = useAppStore((s) => s.setHintSeen)
+  const coachSeen = useAppStore((s) => s.coachSeen)
+  /** 実データ表示中に触られた島(「シミュレーションに切り替えて」を出す先) */
+  const [nudgeIslandId, setNudgeIslandId] = useState<string | null>(null)
+  /** ドラッグの手本を指す島。既定は沖ノ鳥島だが、直前に触った島があればそちら */
+  const [coachIslandId, setCoachIslandId] = useState<string | null>(null)
   const placing = useAppStore((s) => s.placing)
   const measuring = useAppStore((s) => s.measuring)
   const showTerritorial = useAppStore((s) => s.showTerritorial)
@@ -665,8 +708,9 @@ export function MapView() {
           dragged = true
           draggingRef.current = id
           setDragging(true)
-          // 一度ドラッグしたら、ドラッグを促すヒントは役目を終える
+          // 一度ドラッグしたら、ドラッグを促すヒントも吹き出しも役目を終える
           useAppStore.getState().setHintSeen()
+          useAppStore.getState().setCoachSeen()
           void startDrag(id)
         })
         marker.on('drag', () => {
@@ -688,6 +732,13 @@ export function MapView() {
         }
         const store = useAppStore.getState()
         store.setSelectedIslandId(store.selectedIslandId === id ? null : id)
+        // 実データ表示では動かせない。動かせるはずの島を触ったのなら、
+        // 触ったその場に切り替え口を出す(サイドパネルまで探させない)。
+        // 同じ誘いを二重に出さないよう、上のバナーはここで引っ込める
+        if (store.mode === 'real' && !locked) {
+          store.setHintSeen()
+          setNudgeIslandId((cur) => (cur === id ? null : id))
+        }
       })
       markers[id] = marker
     }
@@ -822,6 +873,104 @@ export function MapView() {
     }
   }, [islands, mapObj, baseline, hintSeen])
 
+  // モードが変われば「切り替えて」の吹き出しは用済み
+  useEffect(() => {
+    setNudgeIslandId(null)
+  }, [mode])
+
+  /**
+   * 実データ表示中に動かせる島を触ったとき、その島の横に
+   * 「動かすにはシミュレーションへ」の吹き出しを出す。
+   * ボタンを押した島は、切り替えた先でそのまま手本の吹き出しの主役になる。
+   */
+  useEffect(() => {
+    const map = mapObj
+    if (!map || !styleReady || mode !== 'real' || !nudgeIslandId) return
+    const def = islandDefs(useAppStore.getState())[nudgeIslandId]
+    if (!def) return
+    const st = islands[nudgeIslandId]
+    const lngLat: [number, number] = st ? [st.lon, st.lat] : def.anchor
+    const el = buildBubble({
+      title: 'いまは実データ表示です',
+      body: `${def.nameJa}を動かせるのはシミュレーションです。切り替えると、島をドラッグしてEEZがどう変わるかを試せます。`,
+      cta: {
+        label: '▶ シミュレーションに切り替える',
+        onClick: () => {
+          setCoachIslandId(nudgeIslandId)
+          void setViewMode('sim')
+        },
+      },
+      onClose: () => setNudgeIslandId(null),
+    })
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: true,
+      className: 'map-bubble-popup',
+      maxWidth: '260px',
+      offset: 24,
+      focusAfterOpen: false,
+    })
+      .setLngLat(lngLat)
+      .setDOMContent(el)
+      .addTo(map)
+    // 地図クリックで閉じたことをReact側にも伝える。
+    // 後片付けのremove()でも'close'は飛ぶので、外してから消す
+    const onClose = () => setNudgeIslandId(null)
+    popup.on('close', onClose)
+    return () => {
+      popup.off('close', onClose)
+      popup.remove()
+    }
+  }, [mapObj, styleReady, mode, nudgeIslandId, islands])
+
+  /**
+   * シミュレーションに入ったら、島そのものを指して「動かしてみよう」と言う。
+   * 主役は沖ノ鳥島 ―― 9m²の岩が国土より広い海を生むという、このアプリの主題。
+   */
+  const easedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    const map = mapObj
+    if (!map || !styleReady || !baseline) return
+    // hintSeenでは判定しない。実データ側のバナーや島タップでも立つフラグなので、
+    // 使うと、吹き出しが必要になった瞬間に消える
+    if (mode !== 'sim' || coachSeen) return
+    const id =
+      coachIslandId && !LOCKED_ISLAND_IDS.has(coachIslandId)
+        ? coachIslandId
+        : COACH_ISLAND_ID
+    const def = islandDefs(useAppStore.getState())[id]
+    if (!def) return
+    const st = islands[id]
+    const lngLat: [number, number] = st ? [st.lon, st.lat] : def.anchor
+    // 画面の外にある島を指しても伝わらない。見える位置まで寄せる
+    if (easedForRef.current !== id && !map.getBounds().contains(lngLat)) {
+      easedForRef.current = id
+      map.easeTo({ center: lngLat, duration: 900 })
+    }
+    const el = buildBubble({
+      title: `${def.nameJa}をドラッグしてみよう`,
+      body:
+        id === COACH_ISLAND_ID
+          ? 'たった9m²の岩が、日本の国土より広いEEZを生んでいます。この●を動かすと、まわりの海がまるごと付いてきます。'
+          : 'この●を動かすと、まわりの海がまるごと付いてきます。島リストのON/OFFで「もし無かったら」も試せます。',
+      onClose: () => useAppStore.getState().setCoachSeen(),
+    })
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'map-bubble-popup map-bubble-coach',
+      maxWidth: '260px',
+      offset: 24,
+      focusAfterOpen: false,
+    })
+      .setLngLat(lngLat)
+      .setDOMContent(el)
+      .addTo(map)
+    return () => {
+      popup.remove()
+    }
+  }, [mapObj, styleReady, baseline, mode, coachSeen, coachIslandId, islands])
+
   /**
    * シミュレーション結果をベクタ化して、各国EEZの輪郭線と係争中の斜線を描く。
    *
@@ -948,31 +1097,20 @@ export function MapView() {
   return (
     <div className="map-wrap">
       <div ref={containerRef} className="map-container" />
-      {!hintSeen && baseline && (
+      {/*
+        実データ表示のときだけのバナー。シミュレーション側の案内は、
+        島そのものを指す吹き出し(map-bubble-coach)が引き受ける
+      */}
+      {mode === 'real' && !hintSeen && baseline && (
         <div className="map-hint" role="note">
           <span>
-            {mode === 'real' ? (
-              <>
-                いま見えているのは <b>実データ</b>(Marine Regions)。
-                <b>シミュレーション</b>に切り替えると、島をドラッグしてEEZが
-                どう変わるかを試せます ―― これがこのアプリの主役です。
-              </>
-            ) : (
-              <>
-                💡 島のマーカーを<b>ドラッグ</b>したり、島リストで<b>ON/OFF</b>
-                すると、EEZ(排他的経済水域)の変化を体感できます
-              </>
-            )}
+            いま見えているのは <b>実データ</b>(Marine Regions)。
+            <b>シミュレーション</b>に切り替えると、島をドラッグしてEEZが
+            どう変わるかを試せます ―― これがこのアプリの主役です。
           </span>
-          {mode === 'real' && (
-            <button
-              className="map-hint-cta"
-              disabled={!baseline}
-              onClick={() => void setViewMode('sim')}
-            >
-              ▶ シミュレーションを始める
-            </button>
-          )}
+          <button className="map-hint-cta" onClick={() => void setViewMode('sim')}>
+            ▶ シミュレーションを始める
+          </button>
           <button
             className="map-hint-close"
             aria-label="ヒントを閉じる"
