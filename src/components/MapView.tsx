@@ -465,8 +465,34 @@ export function MapView() {
   const showTrough = useAppStore((s) => s.showTrough)
   const selectedIslandId = useAppStore((s) => s.selectedIslandId)
   const measurePtsRef = useRef<[number, number][]>([])
+  /**
+   * 確定計算の実行中。島のON/OFF・もしもシナリオ・帰属の変更・リセット・
+   * 島の新設でも走る(モードの切替だけではない)。ドラッグ中は差分更新なので
+   * ここには出ない
+   */
+  const simRunning = useAppStore((s) => s.simRunning)
   /** 地図上の凡例を開いているか(サイドパネルの凡例とは独立) */
   const [legendOpen, setLegendOpen] = useState(false)
+  const legendRef = useRef<HTMLDivElement>(null)
+
+  // 凡例は、外側をクリックしたら閉じる(Escでも)
+  useEffect(() => {
+    if (!legendOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!legendRef.current?.contains(e.target as Node)) setLegendOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLegendOpen(false)
+    }
+    // captureで拾う。地図のcanvasはpointerdownを自前で処理するので、
+    // バブリングを待つと閉じ損ねることがある
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [legendOpen])
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -1121,8 +1147,19 @@ export function MapView() {
         </div>
       )}
 
+      {/*
+        確定計算中。島のON/OFFやシナリオでも毎回走るので、
+        地図の真ん中で必ず目に入るところに出す
+      */}
+      {simRunning && (
+        <div className="map-busy" role="status" aria-live="polite">
+          <span className="map-busy-spinner" aria-hidden="true" />
+          EEZを計算中…
+        </div>
+      )}
+
       {/* 地図上の凡例。サイドパネルを開かなくても色が引けるようにする */}
-      <div className="map-legend-control">
+      <div className="map-legend-control" ref={legendRef}>
         <button
           className={`map-legend-toggle${legendOpen ? ' active' : ''}`}
           aria-expanded={legendOpen}

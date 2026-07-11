@@ -600,6 +600,55 @@ body,
   line-height: 1;
 }
 
+/* ---- 計算中の表示 ---- */
+
+.map-busy {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: rgba(28, 53, 92, 0.92);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  z-index: 6;
+  /* 一瞬で消える表示なので、下の地図の操作を邪魔しない */
+  pointer-events: none;
+}
+
+.map-busy-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: busy-spin 0.7s linear infinite;
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 計算中は古い数字を「今の値」として読ませない */
+.area-value-busy {
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-busy-spinner {
+    animation: none;
+  }
+}
+
 /* ---- 島を指す吹き出し(MapLibreのPopupに載せる) ---- */
 
 .map-bubble-popup .maplibregl-popup-content {

@@ -528,7 +528,8 @@ export function SidePanel() {
             ))}
           </select>
         </div>
-        <p className="area-value">
+        {/* 計算中は薄くする。古い数字を今の値として読ませない */}
+        <p className={`area-value${simRunning ? ' area-value-busy' : ''}`}>
           {shownArea !== null ? formatArea(shownArea) : '読み込み中…'}
         </p>
         {delta !== null && Math.abs(delta) > 10000 && (

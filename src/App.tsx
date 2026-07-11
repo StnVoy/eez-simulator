@@ -42,7 +42,8 @@ export default function App() {
             disabled={simRunning || !baseline}
             onClick={() => void setViewMode('sim')}
           >
-            {simRunning ? '計算中…' : 'シミュレーション'}
+            {/* 計算中でも名前は隠さない。進行中の合図は地図の中央に出す */}
+            シミュレーション
           </button>
         </div>
         <button
