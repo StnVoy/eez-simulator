@@ -73,6 +73,55 @@ export async function initBaseline(): Promise<void> {
   void loadRealAreas().then((a) => useAppStore.getState().setRealAreas(a))
   if (store.baseline) return
   store.setBaseline(await loadBaseline())
+  // 地図の初回描画が落ち着いてから先読みを始める。起動と同時に走らせると、
+  // コアの少ない機械では地図の表示そのものが遅れる
+  whenIdle(() => void prewarmSim())
+}
+
+/** 手が空いたら実行する(なければ少し待ってから) */
+function whenIdle(fn: () => void): void {
+  const ric = (
+    globalThis as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void
+    }
+  ).requestIdleCallback
+  if (ric) ric(fn, { timeout: 3000 })
+  else setTimeout(fn, 1200)
+}
+
+/**
+ * 起動直後の先読み計算。
+ *
+ * 実データ表示のまま、裏でシミュレーションの確定計算を済ませておく。
+ * ユーザーが「シミュレーション」を押したときに結果が揃っていれば、待ち時間は
+ * ゼロになる(Workerプールはコア数−1なので、コアの少ない機械では確定計算に
+ * 数秒かかる。そこを丸ごと隠す)。
+ *
+ * モードもsimRunningも立てない。実データ表示の見た目には一切触らない。
+ */
+let prewarming: Promise<void> | null = null
+
+export function prewarmSim(): Promise<void> {
+  const store = useAppStore.getState()
+  // 既に結果がある/確定計算中/ドラッグ中なら、先読みの出る幕はない。
+  // ここで走らせるとWorkerプールのバンド状態を横から壊す
+  if (!store.baseline || store.simResult || store.simRunning || activeDrag) {
+    return Promise.resolve()
+  }
+  prewarming ??= (async () => {
+    try {
+      const result = await requestCompute(currentPoints(), SIM_GRID)
+      poolDirty = false
+      // 起動直後なので既定状態のはず。増減表示の基準もここで確定させておく
+      if (isDefaultState() && useAppStore.getState().defaultSimAreasKm2 === null) {
+        useAppStore.getState().setDefaultSimAreas(result.areaKm2)
+      }
+      publishResult(result)
+    } finally {
+      prewarming = null
+    }
+  })()
+  return prewarming
 }
 
 /** baseline+サンドボックス島を合わせた解決用ファイル */
@@ -159,9 +208,21 @@ export async function setViewMode(mode: ViewMode): Promise<void> {
     store.setMode('real')
     return
   }
+  // 先読みが走っている最中なら、その結果を待つ。ここで runFullSim を
+  // 走らせると同じ計算が2本同時にWorkerプールへ飛び、バンド状態を奪い合う
+  if (prewarming) {
+    store.setSimRunning(true)
+    try {
+      await prewarming
+    } finally {
+      // 成功時は publishResult が降ろすが、失敗時に立てっぱなしにしない
+      useAppStore.getState().setSimRunning(false)
+    }
+  }
   // シミュレーションへ: まだ計算結果がなければ確定計算(runFullSimがmodeも立てる)
-  if (!store.simResult || poolDirty) await runFullSim()
-  else store.setMode('sim')
+  const s = useAppStore.getState()
+  if (!s.simResult || poolDirty) await runFullSim()
+  else s.setMode('sim')
 }
 
 /** 実データ表示に戻す(島の状態は維持) */
