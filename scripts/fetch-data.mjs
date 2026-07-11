@@ -288,7 +288,94 @@ function haversineKm([lon1, lat1], [lon2, lat2]) {
 
 const inBbox = ([x, y], [x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
 
-/** 外周リングをspacing間隔でサンプリング(微小リングも最低1点保証) */
+// ---- 海岸線インデックス(基線点を海岸線上のものだけに絞るため) ----
+//
+// サンプリング元は国別ポリゴンの外周だが、その外周は海岸線だけでできて
+// いない。陸上の国境も外周の一部である。そこから取った点は基線ではないし、
+// さらに悪いことに、隣り合う2国が同じ国境線を共有する以上、両国に「完全に
+// 同一座標」の点が生まれる。距離が完全に同着するので、どちらの国に配分
+// されるかはkd木の構造という、地理と何の関係もないものが決める。島を1つ
+// 動かして点が1個増減しただけで木が組み変わり、内陸のセルが数万km²単位で
+// 国をまたぐ ―― 沖ノ鳥島をOFFにするとベトナムのEEZが増える、の正体。
+//
+// ne_10m_land の外周リングは海岸線そのもの(陸上の国境を含まない)なので、
+// そこから離れた点を基線から落とす。実測では、国別ポリゴンから取った点の
+// 76%が海岸線から0.1km以内、残りは100km級に離れており、中間はほとんど
+// ない。1kmで切れば海岸線の点は1つも落ちない(離れた3,919点は全て国境線
+// から20km以内にあることを確認済み)。
+const COAST_EPS_KM = 1;
+const COAST_CELL_DEG = 0.25;
+const KM_PER_DEG = (Math.PI * R_KM) / 180;
+
+const coastGrid = new Map();
+const coastKey = (i, j) => i * 100000 + j;
+
+function buildCoastIndex(landGeojson) {
+  for (const f of landGeojson.features) {
+    const polys =
+      f.geometry.type === 'MultiPolygon'
+        ? f.geometry.coordinates
+        : [f.geometry.coordinates];
+    for (const poly of polys) {
+      const ring = poly[0]; // 外周のみ(穴=湖の岸は海岸線ではない)
+      for (let n = 1; n < ring.length; n++) {
+        const a = ring[n - 1];
+        const b = ring[n];
+        const i0 = Math.floor(Math.min(a[0], b[0]) / COAST_CELL_DEG);
+        const i1 = Math.floor(Math.max(a[0], b[0]) / COAST_CELL_DEG);
+        const j0 = Math.floor(Math.min(a[1], b[1]) / COAST_CELL_DEG);
+        const j1 = Math.floor(Math.max(a[1], b[1]) / COAST_CELL_DEG);
+        for (let i = i0; i <= i1; i++) {
+          for (let j = j0; j <= j1; j++) {
+            const k = coastKey(i, j);
+            let arr = coastGrid.get(k);
+            if (!arr) coastGrid.set(k, (arr = []));
+            arr.push(a, b);
+          }
+        }
+      }
+    }
+  }
+}
+
+/** 点と線分の距離(km)。この緯度・この短さでは等距離円筒近似で十分 */
+function segDistKm(p, a, b) {
+  const cos = Math.cos(rad(p[1]));
+  const px = p[0] * cos;
+  const ax = a[0] * cos;
+  const bx = b[0] * cos;
+  const dx = bx - ax;
+  const dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  let t = l2 === 0 ? 0 : ((px - ax) * dx + (p[1] - a[1]) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), p[1] - (a[1] + t * dy)) * KM_PER_DEG;
+}
+
+/** その点は海岸線に乗っているか(=基線として使ってよいか) */
+function isCoastal(p) {
+  const i = Math.floor(p[0] / COAST_CELL_DEG);
+  const j = Math.floor(p[1] / COAST_CELL_DEG);
+  // 1セル(0.25°≈28km)先まで見れば1kmの判定には十分
+  for (let di = -1; di <= 1; di++) {
+    for (let dj = -1; dj <= 1; dj++) {
+      const arr = coastGrid.get(coastKey(i + di, j + dj));
+      if (!arr) continue;
+      for (let s = 0; s < arr.length; s += 2) {
+        if (segDistKm(p, arr[s], arr[s + 1]) <= COAST_EPS_KM) return true;
+      }
+    }
+  }
+  return false;
+}
+
+let droppedInland = 0;
+
+/**
+ * 外周リングをspacing間隔でサンプリングする。海岸線から外れた点(=陸上の
+ * 国境)は捨てる。捨てるときは距離の積算をリセットしない ―― 国境を歩いて
+ * いる間は1点も出さず、海岸へ戻った最初の頂点をすぐ拾うため。
+ */
 function sampleRing(ring, spacingKm, bbox, out) {
   let emitted = 0;
   let acc = spacingKm; // 最初のbbox内頂点を必ず拾う
@@ -297,6 +384,10 @@ function sampleRing(ring, spacingKm, bbox, out) {
     if (prev) acc += haversineKm(prev, pt);
     prev = pt;
     if (acc >= spacingKm && inBbox(pt, bbox)) {
+      if (!isCoastal(pt)) {
+        droppedInland++;
+        continue;
+      }
       out.push([Math.round(pt[0] * 1e4) / 1e4, Math.round(pt[1] * 1e4) / 1e4]);
       emitted++;
       acc = 0;
@@ -304,6 +395,9 @@ function sampleRing(ring, spacingKm, bbox, out) {
   }
   return emitted;
 }
+
+buildCoastIndex(JSON.parse(readFileSync(landRaw, 'utf8')));
+console.log(`  coastline index: ${coastGrid.size} cells`);
 
 const adminFc = JSON.parse(readFileSync(adminRaw, 'utf8'));
 const countries = {};
@@ -381,6 +475,42 @@ for (const isl of DRAGGABLE_ISLANDS) {
   };
 }
 
+// ---- 5. 2つ以上のグループに共有された点を落とす ----
+//
+// 海岸線だけに絞ってもなお、陸上の国境が海に出る地点(河口・軍事境界線の
+// 東端など)では、両国の海岸線が同じ頂点を共有する。同一座標の2点は距離が
+// 常に同着で、二等分線が定義できない。その点が最近傍になる海域が「まるごと」
+// どちらかの国に倒れ、しかもどちらに倒れるかはkd木の構造で変わってしまう。
+// 両国から落とす。10km間隔の点を1つ失うだけで、各国の海岸線は前後の自前の
+// 点で変わらず表現され、中間線はその点どうしで正しく決まる。
+{
+  const groups = [
+    ...Object.entries(countries).map(([k, pts]) => [`country:${k}`, pts]),
+    ...Object.entries(disputedOut).map(([k, d]) => [`disputed:${k}`, d.points]),
+    ...Object.entries(islandsOut).map(([k, i]) => [`island:${k}`, i.points]),
+  ];
+  const owners = new Map();
+  for (const [name, pts] of groups) {
+    for (const p of pts) {
+      const k = String(p);
+      if (!owners.has(k)) owners.set(k, new Set());
+      owners.get(k).add(name);
+    }
+  }
+  const shared = new Set(
+    [...owners].filter(([, gs]) => gs.size > 1).map(([k]) => k),
+  );
+  for (const [name, pts] of groups) {
+    const kept = pts.filter((p) => !shared.has(String(p)));
+    const removed = pts.length - kept.length;
+    if (removed === 0) continue;
+    pts.length = 0;
+    pts.push(...kept);
+    console.log(`  共有点を除去: ${name} (-${removed})`);
+  }
+  console.log(`  グループ間で共有されていた座標: ${shared.size}`);
+}
+
 const baseline = {
   spacingKm: SPACING_KM,
   bbox: EXT_BBOX,
@@ -389,6 +519,7 @@ const baseline = {
   islands: islandsOut,
 };
 writeFileSync(path.join(outDir, 'baseline-points.json'), JSON.stringify(baseline));
+console.log(`  海岸線から${COAST_EPS_KM}km超のため捨てた点(陸上の国境): ${droppedInland}`);
 for (const [c, pts] of Object.entries(countries)) console.log(`  ${c}: ${pts.length} pts`);
 for (const [id, d] of Object.entries(disputedOut)) console.log(`  [disputed] ${id}: ${d.points.length} pts`);
 for (const [id, isl] of Object.entries(islandsOut)) console.log(`  [island] ${id}: ${isl.points.length} pts @ ${isl.anchor}`);
