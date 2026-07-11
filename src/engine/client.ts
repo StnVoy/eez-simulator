@@ -20,6 +20,16 @@ const POOL_SIZE = Math.min(
   Math.max(2, (globalThis.navigator?.hardwareConcurrency ?? 4) - 1),
 )
 
+/**
+ * 陸マスク用データの絶対URL。ここ(メインスレッド)で解決する。
+ * BASE_URLは'./'なので、Worker内でfetchするとWorkerスクリプトの場所を
+ * 基準に解決されてしまう(サブパス配信下で404になる)
+ */
+const LAND_URL = new URL(
+  `${import.meta.env.BASE_URL}data/land.geojson`,
+  globalThis.location?.href,
+).href
+
 let workers: Worker[] | null = null
 let baselinePromise: Promise<BaselineFile> | null = null
 let requestSeq = 0
@@ -149,6 +159,7 @@ export async function requestCompute(
       countries,
       rowOffset: i,
       rowStride: pool.length,
+      landUrl: LAND_URL,
     }),
   )
   const responses = await Promise.all(jobs)
@@ -201,6 +212,7 @@ export async function requestComputeDetached(
     countries,
     rowOffset: 0,
     rowStride: 1,
+    landUrl: LAND_URL,
   })
   const areaKm2: Record<string, number> = {}
   countries.forEach((country, ci) => {

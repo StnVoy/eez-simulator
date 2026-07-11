@@ -112,6 +112,15 @@ export interface BandComputeRequest {
   countries: string[]
   rowOffset: number
   rowStride: number
+  /**
+   * 陸マスクを作るための land.geojson の絶対URL。
+   *
+   * Worker側でBASE_URL('./')から組み立ててはいけない。相対URLはWorker
+   * スクリプト自身の場所(/assets/)を基準に解決されるため、サブパス配信
+   * (GitHub Pages)では /assets/data/land.geojson を取りに行って404になる。
+   * ドキュメント基準で解決できるのはメインスレッドだけなので、ここで渡す。
+   */
+  landUrl: string
 }
 
 /**

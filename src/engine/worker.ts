@@ -84,8 +84,14 @@ function noopResponse(requestId: number): BandResponse {
 let landEdgesPromise: Promise<LandEdges> | null = null
 const maskCache = new Map<string, Uint8Array>()
 
-function getLandEdges(): Promise<LandEdges> {
-  landEdgesPromise ??= fetch(`${import.meta.env.BASE_URL}data/land.geojson`)
+/**
+ * URLはメインスレッドから渡ってくる(BandComputeRequest.landUrl)。
+ * Worker内でBASE_URL('./')から組み立てると、Workerスクリプト自身の場所を
+ * 基準に解決され、サブパス配信では /assets/data/land.geojson を取りに行って
+ * 404になる。ドキュメント基準で解決できるのはメインスレッドだけ
+ */
+function getLandEdges(url: string): Promise<LandEdges> {
+  landEdgesPromise ??= fetch(url)
     .then((r) => {
       if (!r.ok) throw new Error(`land.geojson: ${r.status}`)
       return r.json()
@@ -95,6 +101,7 @@ function getLandEdges(): Promise<LandEdges> {
 }
 
 async function getLandMask(
+  url: string,
   grid: GridSpec,
   rowOffset: number,
   rowStride: number,
@@ -102,7 +109,7 @@ async function getLandMask(
   const key = `${grid.width}x${grid.height}/${grid.bbox.join(',')}/${rowOffset}:${rowStride}`
   const hit = maskCache.get(key)
   if (hit) return hit
-  const mask = rasterizeLand(await getLandEdges(), grid, rowOffset, rowStride)
+  const mask = rasterizeLand(await getLandEdges(url), grid, rowOffset, rowStride)
   maskCache.set(key, mask)
   return mask
 }
@@ -114,7 +121,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     // 陸マスクは非同期に用意する(初回のみ land.geojson を読む)。
     // 用意できるまで計算を始めない ―― 陸を含んだ暫定結果を一瞬でも
     // 表示すると、面積が跳ねてから落ち着くという最悪の見え方になる
-    const landMask = await getLandMask(msg.grid, msg.rowOffset, msg.rowStride)
+    const landMask = await getLandMask(
+      msg.landUrl,
+      msg.grid,
+      msg.rowOffset,
+      msg.rowStride,
+    )
     const t0 = performance.now()
     cached = computeEezBand(msg.points, msg.grid, {
       countries: msg.countries,
