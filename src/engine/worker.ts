@@ -17,7 +17,8 @@ import {
   type EezState,
   type TreeBundle,
 } from './eezEngine'
-import type { BandResponse, WorkerRequest } from './types'
+import { landEdges, rasterizeLand, type LandEdges } from './landMask'
+import type { BandResponse, GridSpec, WorkerRequest } from './types'
 
 /** 直近のcomputeで得た担当行の状態。updateの差分更新基準 */
 let cached: EezState | null = null
@@ -75,15 +76,51 @@ function noopResponse(requestId: number): BandResponse {
   }
 }
 
-self.onmessage = (e: MessageEvent<WorkerRequest>) => {
+/**
+ * 陸マスク。地図に描くのと同じ land.geojson から作る。
+ * 担当行だけを塗るので、Worker間で同じ処理を重複させない。
+ * グリッドごとにキャッシュする(確定計算と寄与計算で解像度が違う)
+ */
+let landEdgesPromise: Promise<LandEdges> | null = null
+const maskCache = new Map<string, Uint8Array>()
+
+function getLandEdges(): Promise<LandEdges> {
+  landEdgesPromise ??= fetch(`${import.meta.env.BASE_URL}data/land.geojson`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`land.geojson: ${r.status}`)
+      return r.json()
+    })
+    .then(landEdges)
+  return landEdgesPromise
+}
+
+async function getLandMask(
+  grid: GridSpec,
+  rowOffset: number,
+  rowStride: number,
+): Promise<Uint8Array> {
+  const key = `${grid.width}x${grid.height}/${grid.bbox.join(',')}/${rowOffset}:${rowStride}`
+  const hit = maskCache.get(key)
+  if (hit) return hit
+  const mask = rasterizeLand(await getLandEdges(), grid, rowOffset, rowStride)
+  maskCache.set(key, mask)
+  return mask
+}
+
+self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const msg = e.data
   let res: BandResponse
   if (msg.type === 'compute') {
+    // 陸マスクは非同期に用意する(初回のみ land.geojson を読む)。
+    // 用意できるまで計算を始めない ―― 陸を含んだ暫定結果を一瞬でも
+    // 表示すると、面積が跳ねてから落ち着くという最悪の見え方になる
+    const landMask = await getLandMask(msg.grid, msg.rowOffset, msg.rowStride)
     const t0 = performance.now()
     cached = computeEezBand(msg.points, msg.grid, {
       countries: msg.countries,
       rowOffset: msg.rowOffset,
       rowStride: msg.rowStride,
+      landMask,
     })
     staticBundle = null
     staticVersion = -1

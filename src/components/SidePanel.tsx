@@ -552,11 +552,23 @@ export function SidePanel() {
                 '※ Marine Regionsの算出値。北方領土・尖閣・竹島の周辺と日韓暫定水域(合計約37万km²)は「係争中/共同管理」の別海域として切り出されており、この数字には含まれません。足し戻すと約444万km²で、日本の公称値(約447万km²)の99.3%になります。'
               : '※ Marine Regionsの算出値。係争中・共同管理の海域は、どの国の取り分とも決まっていないため含みません。'}
         </p>
-        {isSim && focusCountry === 'Japan' && realAreas?.Japan != null && (
-          <p className="area-footnote">
-            ※ 実データでは {formatArea(realAreas.Japan)}。差の約42.6万km²は計算モデルの違いで、係争海域の帰属は変わっていません(下の「計算方法」に内訳)。
-          </p>
-        )}
+        {isSim &&
+          focusCountry === 'Japan' &&
+          realAreas?.Japan != null &&
+          defaultSimAreas?.Japan != null && (
+            <p className="area-footnote">
+              {/*
+                差は「島を動かす前の自前計算」と実データの差。表示中の面積と
+                比べると、島を動かした分まで混ざって「モデルの違い」が嘘になる
+              */}
+              ※ 実データでは {formatArea(realAreas.Japan)}。島を動かす前の自前計算との差は
+              {formatDelta(defaultSimAreas.Japan - realAreas.Japan)}(
+              {(
+                (defaultSimAreas.Japan / realAreas.Japan - 1) * 100
+              ).toFixed(1)}
+              %)で、これは計算モデルの違いです。係争海域の帰属は変わっていません(下の「計算方法」に内訳)。
+            </p>
+          )}
         {partialCoverage && (
           <p className="area-footnote">
             ※ この地図は太平洋西部だけを収めているため、{focusJa}

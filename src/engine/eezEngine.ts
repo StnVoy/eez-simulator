@@ -40,6 +40,11 @@ export interface EezState {
   /** 担当行: rowOffset, rowOffset+rowStride, …(単体計算では 0, 1) */
   rowOffset: number
   rowStride: number
+  /**
+   * 陸セル=1 のマスク(engine/landMask.ts)。EEZは海の権利なので、
+   * 陸のセルはどの国にも算入しない。null なら陸を除外しない
+   */
+  landMask: Uint8Array | null
 }
 
 /** r0以上で offset (mod stride) に合同な最初の行 */
@@ -114,7 +119,7 @@ function classifyRange(
   limitKm: number,
   moving?: MovingPoints,
 ): void {
-  const { grid, codes, areaByCode } = state
+  const { grid, codes, areaByCode, landMask } = state
   const { width } = grid
   const [west, south, east, north] = grid.bbox
   const chordSqLimit = arcKmToChordSq(limitKm)
@@ -163,8 +168,14 @@ function classifyRange(
       const i = r * width + c
       const old = codes[i]
       if (old !== code) {
-        if (old) areaByCode[old] -= cellArea
-        if (code) areaByCode[code] += cellArea
+        // 陸のセルにも帰属は与える(codesは描画と輪郭追跡にも使う。陸を0に
+        // すると、ラスタが海岸で途切れて白い縁ができ、輪郭線が海岸線を
+        // なぞって海の上を走る)。ただし面積には数えない ―― EEZは海の権利
+        // であって、陸地がEEZになるわけではない
+        if (!landMask?.[i]) {
+          if (old) areaByCode[old] -= cellArea
+          if (code) areaByCode[code] += cellArea
+        }
         codes[i] = code
       }
     }
@@ -200,7 +211,12 @@ export function countryOrder(points: PointsByCountry): string[] {
 export function computeEezBand(
   points: PointsByCountry,
   grid: GridSpec,
-  opts: { countries?: string[]; rowOffset?: number; rowStride?: number } = {},
+  opts: {
+    countries?: string[]
+    rowOffset?: number
+    rowStride?: number
+    landMask?: Uint8Array | null
+  } = {},
   limitKm: number = NM200_KM,
 ): EezState {
   const countries = opts.countries ?? countryOrder(points)
@@ -211,6 +227,7 @@ export function computeEezBand(
     areaByCode: new Float64Array(countries.length + 1),
     rowOffset: opts.rowOffset ?? 0,
     rowStride: opts.rowStride ?? 1,
+    landMask: opts.landMask ?? null,
   }
   const bundle = buildTree(points, countries)
   classifyRange(state, bundle, 0, grid.height, 0, grid.width, limitKm)
@@ -222,7 +239,12 @@ export function computeEezState(
   points: PointsByCountry,
   grid: GridSpec,
   limitKm: number = NM200_KM,
-  opts: { countries?: string[]; rowOffset?: number; rowStride?: number } = {},
+  opts: {
+    countries?: string[]
+    rowOffset?: number
+    rowStride?: number
+    landMask?: Uint8Array | null
+  } = {},
 ): { state: EezState; result: EezResult } {
   const t0 = performance.now()
   const state = computeEezBand(points, grid, opts, limitKm)
