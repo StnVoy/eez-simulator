@@ -22,6 +22,7 @@ import type {
   IslandDef,
   PointsByCountry,
 } from '../engine/types'
+import { track } from '../lib/analytics'
 import { loadRealAreas } from '../lib/realAreas'
 import { CONTRIB_GRID, INFLUENCE_RADIUS_KM, SIM_GRID } from '../lib/simConfig'
 import { islandDefs, useAppStore, type ViewMode } from '../store/useAppStore'
@@ -208,6 +209,9 @@ export async function setViewMode(mode: ViewMode): Promise<void> {
     store.setMode('real')
     return
   }
+  // 計算の完了ではなく「入ろうとした」時点で記録する。ここが
+  // 実データを眺めただけの人と、本題まで来た人を分ける線になる
+  track('simulation_start', { first_time: !store.simVisited })
   // 先読みが走っている最中なら、その結果を待つ。ここで runFullSim を
   // 走らせると同じ計算が2本同時にWorkerプールへ飛び、バンド状態を奪い合う
   if (prewarming) {
@@ -233,7 +237,9 @@ export function showRealData(): void {
 /** 島のON/OFF切替 → 確定計算 */
 export async function toggleIsland(id: string): Promise<void> {
   const store = useAppStore.getState()
-  store.setIslandState(id, { enabled: !store.islands[id].enabled })
+  const enabled = !store.islands[id].enabled
+  track('island_toggle', { island: id, enabled })
+  store.setIslandState(id, { enabled })
   await runFullSim()
 }
 
@@ -253,6 +259,8 @@ export async function setIslandOwner(
  * owner='' は「係争中」で、どの国のEEZにも算入しない。
  */
 export async function setDisputeOwner(id: string, owner: string): Promise<void> {
+  // owner='' は「係争中」。空文字だとGA4で読めないのでラベルにする
+  track('dispute_set', { dispute: id, owner: owner === '' ? 'disputed' : owner })
   useAppStore.getState().setDisputedOwner(id, owner)
   poolDirty = true
   await runFullSim()
@@ -264,6 +272,7 @@ export async function addIslandAt(
   lat: number,
   owner: string = 'Japan',
 ): Promise<string> {
+  track('island_add', { owner })
   const def: IslandDef = {
     nameJa: `新しい島(${COUNTRY_NAMES_JA[owner] ?? owner})`,
     owner,
@@ -290,6 +299,7 @@ export async function removeIsland(id: string): Promise<void> {
 /** ワンクリックで現実の状態に戻す */
 export function resetAll(): void {
   const store = useAppStore.getState()
+  track('reset', { mode: store.mode })
   store.resetIslands()
   poolDirty = true
   // モードは変えない。シミュレーション中なら現実の配置で計算し直す
@@ -299,6 +309,7 @@ export function resetAll(): void {
 /** 「もしも」シナリオ: 現実状態から指定の島だけOFFにして確定計算 */
 export async function applyScenario(disableIds: string[]): Promise<void> {
   const store = useAppStore.getState()
+  track('scenario_apply', { islands: disableIds.join(',') })
   store.resetIslands()
   for (const id of disableIds) {
     store.setIslandState(id, { enabled: false })
@@ -372,6 +383,8 @@ let staticPoints: PointsByCountry | null = null
 let dragOwner = ''
 let dragIslandPoints: [number, number][] = []
 let dragAnchor: [number, number] = [0, 0]
+/** このドラッグを始めた位置(掴んだだけで動かさなかった場合を計測から除く) */
+let dragStartPos: [number, number] = [0, 0]
 /**
  * 更新ウィンドウの半径(km)。基本の影響圏に「島の点群の広がり」を足す。
  * 択捉島のように点群が広い島は、アンカーから離れた点の200海里圏が
@@ -397,6 +410,7 @@ export async function startDrag(id: string): Promise<void> {
   const st = store.islands[id]
   const island = islandDefs(store)[id]
   const startPos: [number, number] = [st.lon, st.lat]
+  dragStartPos = startPos
 
   if (poolDirty) {
     // リセット直後など、プールが現在状態を持っていない場合のみ全域計算。
@@ -487,6 +501,11 @@ function pump(): void {
 export async function endDrag(id: string): Promise<void> {
   if (activeDrag !== id) return
   activeDrag = null
+  const st = useAppStore.getState().islands[id]
+  if (st && (st.lon !== dragStartPos[0] || st.lat !== dragStartPos[1])) {
+    const km = haversineKm(dragStartPos[0], dragStartPos[1], st.lon, st.lat)
+    track('island_drag', { island: id, moved_km: Math.round(km) })
+  }
   // committedPos/queuedは触らない: 残りのキューはpumpが流しきり、
   // 最終位置まで厳密に反映される(次のstartDragで再初期化)。
   // まだ全域計算待ちなら、startDrag側が最終位置で計算し直す

@@ -450,6 +450,12 @@ body,
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
+/* 他のラベルと重なって読めなくなるラベルは隠す(点は残す)。
+   MapViewの衝突回避が付け外しする。ズームを寄せれば自然に戻る */
+.label-collided {
+  display: none;
+}
+
 .island-label {
   margin-top: 2px;
   font-size: 11px;
@@ -1089,6 +1095,24 @@ body,
   background: #fdfdfd;
 }
 
+/* フッターの控えめなリンク(アクセス解析の告知) */
+.footer-link {
+  padding: 0;
+  font-size: 11px;
+  color: #57606a;
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: #c2c9d1;
+  text-underline-offset: 2px;
+}
+
+.footer-link:hover {
+  color: #2b6cd4;
+}
+
 /* ---- 解説コラム(モーダル) ---- */
 
 .header-column-button {
@@ -1600,15 +1624,18 @@ body,
     flex: 1 1 auto;
     font-size: 12px;
   }
-  /* フッターは1行のボタンに畳む。全文はモーダルで読む */
+  /* フッターは1行に畳む。全文はモーダルで読む。
+     免責とアクセス解析の告知を横に並べ、2行に増やさない */
   .app-footer {
     justify-content: center;
+    align-items: center;
+    gap: 0 10px;
     padding: 0 8px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .footer-compact {
-    display: block;
-    width: 100%;
+  .footer-compact,
+  .footer-link.label-narrow {
+    display: inline-block;
     padding: 4px 2px;
     font-size: 10px;
     line-height: 1.4;

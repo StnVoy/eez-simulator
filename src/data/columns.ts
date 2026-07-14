@@ -557,8 +557,68 @@ const ABOUT: Column = {
   ],
 }
 
+/**
+ * アクセス解析の告知。
+ *
+ * 電気通信事業法の外部送信規律(第27条の12)により、利用者の端末から
+ * 第三者へ情報を送信させる場合は、送信先・送信される情報・その用途を
+ * 利用者が容易に知りうる状態に置く必要がある。GA4を入れている以上、
+ * 個人サイトでもこの告知は要る。フッターから常時1クリックで開けること。
+ */
+const PRIVACY: Column = {
+  id: 'privacy',
+  title: 'アクセス解析と外部送信について',
+  lead:
+    '本アプリは、どの機能が使われているかを把握して改善するために、Googleアナリティクス(GA4)を利用しています。氏名やメールアドレスなど、あなたを直接特定する情報は一切収集しません。',
+  sections: [
+    {
+      heading: '送信先',
+      paragraphs: [
+        'Google LLC(Googleアナリティクス4)。日本国外のサーバーに送信・保存されることがあります。',
+      ],
+    },
+    {
+      heading: '送信される情報',
+      paragraphs: [
+        '閲覧したページのURLとタイトル、参照元(どこから来たか)、ブラウザとOSの種類、画面サイズ、おおよその地域(IPアドレスから推定されるもので、IPアドレス自体はGoogleによって匿名化されます)、および利用状況を識別するためのCookie。',
+        'あわせて、アプリ内の操作をイベントとして送信します。具体的には、シミュレーションを開始したか、どの島をドラッグ/ON・OFFしたか、どの解説コラムを開いたか、といった操作の種別です。あなたが地図上のどこに島を置いたかといった内容そのものは送信していません。',
+      ],
+    },
+    {
+      heading: '利用目的',
+      paragraphs: [
+        '利用状況の把握と、アプリの改善のためだけに使います。広告配信や、第三者への提供は行いません。',
+      ],
+    },
+    {
+      heading: '送信を止めたい場合',
+      paragraphs: [
+        'ブラウザの拡張機能(広告ブロッカー等)や、Googleが提供するオプトアウトアドオンを使うと、送信を停止できます。停止しても本アプリの機能はすべて利用できます。',
+      ],
+    },
+  ],
+  sources: [
+    {
+      publisher: 'Google',
+      title: 'Googleアナリティクス オプトアウト アドオン',
+      url: 'https://tools.google.com/dlpage/gaoptout?hl=ja',
+    },
+    {
+      publisher: 'Google',
+      title: 'Googleのサービスを使用するサイトやアプリから収集した情報のGoogleによる使用',
+      url: 'https://policies.google.com/technologies/partner-sites?hl=ja',
+    },
+    {
+      publisher: '総務省',
+      title: '外部送信規律(電気通信事業法第27条の12)',
+      url: 'https://www.soumu.go.jp/main_sosiki/joho_tsusin/d_syohi/telecommunications_business_law.html',
+    },
+  ],
+}
+
 export const COLUMNS: Record<string, Column> = {
   about: ABOUT,
+  privacy: PRIVACY,
   'what-is-eez': WHAT_IS_EEZ,
   method: METHOD,
   'northern-territories': NORTHERN_TERRITORIES,

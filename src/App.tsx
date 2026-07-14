@@ -73,11 +73,25 @@ export default function App() {
         <span className="label-wide">
           出典: Marine Regions (VLIZ) World EEZ v12 (CC BY-NC-SA) / Natural Earth
         </span>
+        {/* 外部送信規律(電気通信事業法)により、アクセス解析の告知は
+            画面の広さに関わらず常に1クリックで開ける場所に置く */}
+        <button
+          className="footer-link label-wide"
+          onClick={() => openColumn('privacy')}
+        >
+          アクセス解析について
+        </button>
         <button
           className="footer-compact label-narrow"
           onClick={() => openColumn('about')}
         >
           ⓘ 教育目的の簡略モデルです・出典とライセンス
+        </button>
+        <button
+          className="footer-link label-narrow"
+          onClick={() => openColumn('privacy')}
+        >
+          アクセス解析
         </button>
       </footer>
     </div>

@@ -819,6 +819,82 @@ export function MapView() {
     }
   }, [mapObj, baseline])
 
+  /*
+   * ラベルの衝突回避。
+   *
+   * 島・係争地のマーカーはDOM要素(maplibregl.Marker)なので、シンボル
+   * レイヤーのような自動的な衝突回避が効かない。ズームを引くと、近接した
+   * ラベル(与那国島と尖閣諸島など)が重なって両方読めなくなる。
+   *
+   * 画面上の矩形が重なるラベルは、優先度の低い方を隠す(点は残すので、
+   * 押せば情報カードは開ける)。ズームすれば自然に復活する。
+   */
+  useEffect(() => {
+    const map = mapObj
+    if (!map) return
+    let raf = 0
+
+    const layout = (): void => {
+      raf = 0
+      const selectedId = useAppStore.getState().selectedIslandId
+      // 優先度の高い順: 選択中の島 → 係争地(法的な文脈を担う) → 島
+      const entries = [
+        ...Object.entries(disputeMarkersRef.current).map(([id, m]) => ({
+          id,
+          el: m.getElement(),
+          cls: 'dispute-label',
+          rank: 1,
+        })),
+        ...Object.entries(markersRef.current).map(([id, m]) => ({
+          id,
+          el: m.getElement(),
+          cls: 'island-label',
+          rank: 2,
+        })),
+      ].sort((a, b) => (a.id === selectedId ? -1 : b.id === selectedId ? 1 : a.rank - b.rank))
+
+      // 隠したままだと矩形が測れない。一度すべて出してから測って決める
+      const labels: { el: HTMLElement; label: HTMLElement }[] = []
+      for (const e of entries) {
+        const label = e.el.querySelector<HTMLElement>('.' + e.cls)
+        if (!label) continue
+        label.classList.remove('label-collided')
+        labels.push({ el: e.el, label })
+      }
+
+      const placed: DOMRect[] = []
+      for (const { label } of labels) {
+        const r = label.getBoundingClientRect()
+        if (r.width === 0) continue
+        const hit = placed.some(
+          (p) =>
+            r.left < p.right + 2 &&
+            r.right + 2 > p.left &&
+            r.top < p.bottom + 2 &&
+            r.bottom + 2 > p.top,
+        )
+        if (hit) label.classList.add('label-collided')
+        else placed.push(r)
+      }
+    }
+
+    const schedule = (): void => {
+      if (raf) return
+      raf = requestAnimationFrame(layout)
+    }
+
+    schedule()
+    map.on('move', schedule)
+    map.on('zoom', schedule)
+    map.on('resize', schedule)
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      map.off('move', schedule)
+      map.off('zoom', schedule)
+      map.off('resize', schedule)
+    }
+  }, [mapObj, baseline, customIslands, selectedIslandId])
+
   // 「島を新設」/距離測定モード中はカーソルを十字に
   useEffect(() => {
     if (!mapObj) return

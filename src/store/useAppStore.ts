@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { track } from '../lib/analytics'
 import type { EezProperties } from '../lib/config'
 import type {
   BaselineFile,
@@ -150,7 +151,10 @@ export const useAppStore = create<AppState>((set) => ({
   setMeasureKm: (v) => set({ measureKm: v }),
   setShowTerritorial: (v) => set({ showTerritorial: v }),
   setShowTrough: (v) => set({ showTrough: v }),
-  openColumn: (id) => set({ openColumnId: id }),
+  openColumn: (id) => {
+    track('column_open', { column: id })
+    set({ openColumnId: id })
+  },
   closeColumn: () => set({ openColumnId: null }),
   // シミュレーションに入ったら切替の強調は終わる。ヒントは中身が変わる
   // (実データ=切替の案内 / シミュレーション=ドラッグの案内)ので消さない
