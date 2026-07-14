@@ -4,11 +4,54 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>EEZシミュレーター | 島を動かすと日本の排他的経済水域が変わる地図</title>
     <meta
       name="description"
-      content="日本の排他的経済水域(EEZ)を地図上で体感できる教育用シミュレーター"
+      content="日本の排他的経済水域(EEZ)を地図で可視化し、島をドラッグしたり消したりするとEEZが再計算される教育用シミュレーター。沖ノ鳥島を消すとEEZは約41万km²縮み、国土面積より広い海が失われます。"
     />
-    <title>EEZシミュレーター</title>
+    <link rel="canonical" href="https://stnvoy.github.io/eez-simulator/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0b2a4a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EEZシミュレーター" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:url" content="https://stnvoy.github.io/eez-simulator/" />
+    <meta
+      property="og:title"
+      content="EEZシミュレーター | 島を動かすと日本の排他的経済水域が変わる地図"
+    />
+    <meta
+      property="og:description"
+      content="島をドラッグしたり消したりすると、日本のEEZがその場で再計算される教育用シミュレーター。沖ノ鳥島を消すと約41万km²──国土より広い海が消えます。"
+    />
+    <meta property="og:image" content="https://stnvoy.github.io/eez-simulator/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="日本のEEZを色分け表示した地図と、沖ノ鳥島・南鳥島の200海里の円"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "EEZシミュレーター",
+        "url": "https://stnvoy.github.io/eez-simulator/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ja",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" },
+        "description": "日本の排他的経済水域(EEZ)を地図上で可視化し、島をドラッグ・ON/OFFするとEEZがリアルタイムに再計算される教育用Webアプリ。200海里と等距離中間線のルールでEEZを自前計算し、沖ノ鳥島や小笠原諸島がどれだけの海を生んでいるかを体感できる。",
+        "keywords": "EEZ, 排他的経済水域, 200海里, 沖ノ鳥島, 中間線, 国連海洋法条約, 地理, 公民",
+        "creator": { "@type": "Person", "name": "StnVoy" }
+      }
+    </script>
+
     <!-- Google tag (gtag.js) -->
     <script
       async
@@ -26,6 +69,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>EEZシミュレーター</h1>
+      <p>
+        日本の排他的経済水域(EEZ)を地図上に表示し、島をドラッグしたり消したりすると
+        EEZがその場で再計算される教育用シミュレーターです。ご利用にはJavaScriptを有効にしてください。
+      </p>
+      <p>
+        EEZは基線から200海里(約370km)まで、隣国と重なる海域は等距離の中間線で分けられます。
+        日本のEEZは約447万km²で国土面積(約37.8万km²)の約11.8倍。
+        そのうち沖ノ鳥島が約41万km²、小笠原・硫黄列島が約54万km²を生んでいます。
+      </p>
+      <p>
+        出典: Marine Regions (VLIZ) World EEZ v12 (CC BY-NC-SA) / Natural Earth
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
